@@ -41,6 +41,7 @@ app.use(express.urlencoded({ extended: true }));
 
 //test route
 app.get('/', (req, res)=>{
+  console.log('bonjour les amis');
   res.json({message: "your server is live!"});
 })
 
