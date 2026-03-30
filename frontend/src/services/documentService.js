@@ -19,6 +19,7 @@ const uploadDocument = async (formData) => {
     });
     return response.data;
   } catch (error) {
+    console.error("UPLOAD DOCUMENT ERROR:", error);
     throw error.response?.data || { message: 'Failed to upload document' };
   }
 };
