@@ -39,6 +39,11 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+//test route
+app.get('/', (req, res)=>{
+  res.json({message: "your server is live!"});
+})
+
 
 // Static folder for uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
