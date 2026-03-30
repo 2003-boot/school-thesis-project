@@ -4,6 +4,7 @@ import Quiz from '../models/Quiz.js';
 import { extractTextFromPDF } from '../utils/pdfParser.js';
 import { chunkText } from '../utils/textChunker.js';
 import fs from 'fs/promises';
+import path from 'path';
 import mongoose from 'mongoose';
 
 // @desc    Upload PDF document
@@ -22,8 +23,7 @@ export const uploadDocument = async (req, res, next) => {
     const { title } = req.body;
 
     if (!title) {
-      // Delete uploaded file if no title provided
-      await fs.unlink(req.file.path);
+      await fs.unlink(req.file.path).catch(() => {});
       return res.status(400).json({
         success: false,
         error: 'Please provide a document title',
@@ -31,22 +31,20 @@ export const uploadDocument = async (req, res, next) => {
       });
     }
 
-    // Construct the URL for the uploaded file
-    const baseUrl = `http://localhost:${process.env.PORT || 8000}`;
+    const baseUrl =
+      process.env.BASE_URL || `http://localhost:${process.env.PORT || 8000}`;
     const fileUrl = `${baseUrl}/uploads/documents/${req.file.filename}`;
 
-    // Create document record
     const document = await Document.create({
       userId: req.user._id,
       title,
       fileName: req.file.originalname,
-      filePath: fileUrl, // Store the URL instead of the local path
+      filePath: fileUrl,
       fileSize: req.file.size,
       status: 'processing'
     });
 
-    // Process PDF in background (in production, use a queue like Bull)
-    processPDF(document._id, req.file.path).catch(err => {
+    processPDF(document._id, req.file.path).catch((err) => {
       console.error('PDF processing error:', err);
     });
 
@@ -56,7 +54,6 @@ export const uploadDocument = async (req, res, next) => {
       message: 'Document uploaded successfully. Processing in progress...'
     });
   } catch (error) {
-    // Clean up file on error
     if (req.file) {
       await fs.unlink(req.file.path).catch(() => {});
     }
@@ -68,21 +65,19 @@ export const uploadDocument = async (req, res, next) => {
 const processPDF = async (documentId, filePath) => {
   try {
     const { text } = await extractTextFromPDF(filePath);
-    
-    // Create chunks
+
     const chunks = chunkText(text, 500, 50);
 
-    // Update document
     await Document.findByIdAndUpdate(documentId, {
       extractedText: text,
-      chunks: chunks,
+      chunks,
       status: 'ready'
     });
 
     console.log(`Document ${documentId} processed successfully`);
   } catch (error) {
     console.error(`Error processing document ${documentId}:`, error);
-    
+
     await Document.findByIdAndUpdate(documentId, {
       status: 'failed'
     });
@@ -94,7 +89,7 @@ const processPDF = async (documentId, filePath) => {
 // @access  Private
 export const getDocuments = async (req, res, next) => {
   try {
-   const documents = await Document.aggregate([
+    const documents = await Document.aggregate([
       {
         $match: { userId: new mongoose.Types.ObjectId(req.user._id) }
       },
@@ -129,7 +124,7 @@ export const getDocuments = async (req, res, next) => {
         }
       },
       {
-        $sort: { uploadDate: -1 }
+        $sort: { createdAt: -1 }
       }
     ]);
 
@@ -148,7 +143,7 @@ export const getDocuments = async (req, res, next) => {
 // @access  Private
 export const getDocument = async (req, res, next) => {
   try {
-   const document = await Document.findOne({
+    const document = await Document.findOne({
       _id: req.params.id,
       userId: req.user._id
     });
@@ -161,15 +156,19 @@ export const getDocument = async (req, res, next) => {
       });
     }
 
-    // Get counts of associated flashcards and quizzes
-    const flashcardCount = await Flashcard.countDocuments({ documentId: document._id, userId: req.user._id });
-    const quizCount = await Quiz.countDocuments({ documentId: document._id, userId: req.user._id });
+    const flashcardCount = await Flashcard.countDocuments({
+      documentId: document._id,
+      userId: req.user._id
+    });
 
-    // Update last accessed
+    const quizCount = await Quiz.countDocuments({
+      documentId: document._id,
+      userId: req.user._id
+    });
+
     document.lastAccessed = Date.now();
     await document.save();
 
-    // Combine document data with counts
     const documentData = document.toObject();
     documentData.flashcardCount = flashcardCount;
     documentData.quizCount = quizCount;
@@ -188,7 +187,7 @@ export const getDocument = async (req, res, next) => {
 // @access  Private
 export const deleteDocument = async (req, res, next) => {
   try {
-   const document = await Document.findOne({
+    const document = await Document.findOne({
       _id: req.params.id,
       userId: req.user._id
     });
@@ -201,10 +200,14 @@ export const deleteDocument = async (req, res, next) => {
       });
     }
 
-    // Delete file from filesystem
-    await fs.unlink(document.filePath).catch(() => {});
+    if (document.filePath) {
+      const uploadsDir = path.join(process.cwd(), 'uploads', 'documents');
+      const fileName = document.filePath.split('/').pop();
+      const localFilePath = path.join(uploadsDir, fileName);
 
-    // Delete document
+      await fs.unlink(localFilePath).catch(() => {});
+    }
+
     await document.deleteOne();
 
     res.status(200).json({

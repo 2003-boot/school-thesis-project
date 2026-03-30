@@ -36,8 +36,8 @@ const FlashcardsListPage = () => {
     if (flashcardSets.length === 0) {
       return (
         <EmptyState
-          title="No Flashcard Sets Found"
-          description="You haven't generated any flashcards yet. Go to a document to create your first set."
+          title="Aucun lot de flashcards trouvé"
+          description="Vous n’as pas encore généré de flashcards. Vas dans un document pour créer ton premier lot."
         />
       );
     }
@@ -52,7 +52,7 @@ const FlashcardsListPage = () => {
   };
   return (
     <div>
-      <PageHeader title="All Flashcard Sets" />
+      <PageHeader title="Tous les lots de flashcards" />
       {renderContent()}
     </div>
   )
