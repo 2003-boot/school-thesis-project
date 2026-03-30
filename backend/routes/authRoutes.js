@@ -30,7 +30,7 @@ router.get('/test-email', async (req, res) => {
 
     res.json({ success: true, message: "Email envoyé !" });
   } catch (error) {
-    console.error(error);
+    console.log(error);
     res.status(500).json({ success: false, error: "Erreur envoi email" });
   }
 });
