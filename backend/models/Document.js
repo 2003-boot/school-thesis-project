@@ -53,11 +53,7 @@ const documentSchema = new mongoose.Schema({
     type: String,
     enum: ['processing', 'ready', 'failed'],
     default: 'processing'
-  },
-  cloudinaryPublicId: {
-  type: String,
-  default: null,
-},
+  }
 }, {
   timestamps: true
 });

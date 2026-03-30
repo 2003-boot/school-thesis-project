@@ -3,7 +3,7 @@ import Flashcard from '../models/Flashcard.js';
 import Quiz from '../models/Quiz.js';
 import { extractTextFromPDF } from '../utils/pdfParser.js';
 import { chunkText } from '../utils/textChunker.js';
-import cloudinary from '../utils/cloudinary.js';
+import supabase from '../utils/supabase.js';
 import fs from 'fs/promises';
 import mongoose from 'mongoose';
 
@@ -31,26 +31,39 @@ export const uploadDocument = async (req, res, next) => {
       });
     }
 
-    // Upload PDF to Cloudinary
-    const uploadResult = await cloudinary.uploader.upload(req.file.path, {
-      resource_type: 'raw',
-      folder: 'ai-learning-assistant/documents',
-      use_filename: true,
-      unique_filename: true,
-    });
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'documents';
+    const fileExt = req.file.originalname.split('.').pop();
+    const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${fileExt}`;
+    const filePathInBucket = `documents/${fileName}`;
 
-    // Create document record
+    const fileBuffer = await fs.readFile(req.file.path);
+
+    const { error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(filePathInBucket, fileBuffer, {
+        contentType: req.file.mimetype,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new Error(uploadError.message);
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(filePathInBucket);
+
+    const publicUrl = publicUrlData.publicUrl;
+
     const document = await Document.create({
       userId: req.user._id,
       title,
       fileName: req.file.originalname,
-      filePath: uploadResult.secure_url,
+      filePath: publicUrl,
       fileSize: req.file.size,
-      status: 'processing',
-      cloudinaryPublicId: uploadResult.public_id,
+      status: 'processing'
     });
 
-    // Process PDF text from temporary local file
     processPDF(document._id, req.file.path).catch((err) => {
       console.error('PDF processing error:', err);
     });
@@ -61,18 +74,20 @@ export const uploadDocument = async (req, res, next) => {
       message: 'Document uploaded successfully. Processing in progress...'
     });
   } catch (error) {
+    console.error('UPLOAD DOCUMENT ERROR:', error);
+
     if (req.file) {
       await fs.unlink(req.file.path).catch(() => {});
     }
+
     next(error);
   }
 };
 
 // Helper function to process PDF
-const processPDF = async (documentId, filePath) => {
+const processPDF = async (documentId, localFilePath) => {
   try {
-    const { text } = await extractTextFromPDF(filePath);
-
+    const { text } = await extractTextFromPDF(localFilePath);
     const chunks = chunkText(text, 500, 50);
 
     await Document.findByIdAndUpdate(documentId, {
@@ -81,9 +96,7 @@ const processPDF = async (documentId, filePath) => {
       status: 'ready'
     });
 
-    // Delete temporary local file after processing
-    await fs.unlink(filePath).catch(() => {});
-
+    await fs.unlink(localFilePath).catch(() => {});
     console.log(`Document ${documentId} processed successfully`);
   } catch (error) {
     console.error(`Error processing document ${documentId}:`, error);
@@ -92,7 +105,7 @@ const processPDF = async (documentId, filePath) => {
       status: 'failed'
     });
 
-    await fs.unlink(filePath).catch(() => {});
+    await fs.unlink(localFilePath).catch(() => {});
   }
 };
 
@@ -212,11 +225,20 @@ export const deleteDocument = async (req, res, next) => {
       });
     }
 
-    // Delete from Cloudinary
-    if (document.cloudinaryPublicId) {
-      await cloudinary.uploader.destroy(document.cloudinaryPublicId, {
-        resource_type: 'raw',
-      }).catch(() => {});
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'documents';
+
+    if (document.filePath) {
+      const marker = `/storage/v1/object/public/${bucket}/`;
+      const markerIndex = document.filePath.indexOf(marker);
+
+      if (markerIndex !== -1) {
+        const storagePath = document.filePath.substring(markerIndex + marker.length);
+
+        await supabase.storage
+          .from(bucket)
+          .remove([storagePath])
+          .catch(() => {});
+      }
     }
 
     await document.deleteOne();
