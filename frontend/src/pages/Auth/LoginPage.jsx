@@ -52,7 +52,7 @@ const LoginPage = () => {
               Content de te revoir !☺️
             </h1>
             <p className="text-slate-500 text-sm">
-              Connectez-toi pour continuer ton aventure
+              Connecte-toi pour continuer ton aventure
             </p>
           </div>
 

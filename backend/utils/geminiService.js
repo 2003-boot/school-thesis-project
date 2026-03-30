@@ -10,6 +10,26 @@ if (!process.env.GEMINI_API_KEY) {
   process.exit(1);
 }
 
+const GEMINI_MODEL = "gemini-2.5-flash-lite";
+
+const handleGeminiError = (error, fallbackMessage) => {
+  console.error('Gemini API error:', error);
+
+  const errorMessage =
+    error?.message ||
+    error?.error?.message ||
+    '';
+
+  if (
+    error?.status === 429 ||
+    errorMessage.includes('RESOURCE_EXHAUSTED') ||
+    errorMessage.toLowerCase().includes('quota')
+  ) {
+    throw new Error("⚠️ Limite IA atteinte. Réessaie dans quelques minutes.");
+  }
+
+  throw new Error(fallbackMessage);
+};
 
 /**
  * Generate flashcards from text
@@ -18,6 +38,10 @@ if (!process.env.GEMINI_API_KEY) {
  * @returns {Promise<Array<{question: string, answer: string, difficulty: string}>>}
  */
 export const generateFlashcards = async (text, count = 10) => {
+  if (!text || text.trim().length < 50) {
+    throw new Error("Le document est trop court pour générer des flashcards.");
+  }
+
   const prompt = `Tu es un assistant pédagogique francophone.
 
 Génère exactement ${count} flashcards éducatives en français à partir du texte suivant.
@@ -42,20 +66,21 @@ ${text.substring(0, 15000)}`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite",
+      model: GEMINI_MODEL,
       contents: prompt,
     });
 
-    const generatedText = response.text;
-    
-    // Parse the response
+    const generatedText = response.text || '';
+
     const flashcards = [];
-    const cards = generatedText.split('---').filter(c => c.trim());
-    
+    const cards = generatedText.split('---').filter((c) => c.trim());
+
     for (const card of cards) {
       const lines = card.trim().split('\n');
-      let question = '', answer = '', difficulty = 'medium';
-      
+      let question = '';
+      let answer = '';
+      let difficulty = 'medium';
+
       for (const line of lines) {
         if (line.startsWith('Q:')) {
           question = line.substring(2).trim();
@@ -68,16 +93,19 @@ ${text.substring(0, 15000)}`;
           }
         }
       }
-      
+
       if (question && answer) {
         flashcards.push({ question, answer, difficulty });
       }
     }
-    
+
+    if (!flashcards.length) {
+      throw new Error("Aucune flashcard valide n'a pu être générée.");
+    }
+
     return flashcards.slice(0, count);
   } catch (error) {
-    console.error('Gemini API error:', error);
-    throw new Error('Failed to generate flashcards');
+    handleGeminiError(error, "❌ Erreur lors de la génération des flashcards.");
   }
 };
 
@@ -88,6 +116,10 @@ ${text.substring(0, 15000)}`;
  * @returns {Promise<Array<{question: string, options: Array, correctAnswer: string, explanation: string, difficulty: string}>>}
  */
 export const generateQuiz = async (text, numQuestions = 5) => {
+  if (!text || text.trim().length < 50) {
+    throw new Error("Le document est trop court pour générer un quiz.");
+  }
+
   const prompt = `Tu es un assistant pédagogique francophone.
 
 Génère exactement ${numQuestions} questions de quiz à choix multiples en français à partir du texte suivant.
@@ -119,21 +151,26 @@ ${text.substring(0, 15000)}`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite",
+      model: GEMINI_MODEL,
       contents: prompt,
     });
 
-    const generatedText = response.text;
-    
+    const generatedText = response.text || '';
+
     const questions = [];
-    const questionBlocks = generatedText.split('---').filter(q => q.trim());
-    
+    const questionBlocks = generatedText.split('---').filter((q) => q.trim());
+
     for (const block of questionBlocks) {
       const lines = block.trim().split('\n');
-      let question = '', options = [], correctAnswer = '', explanation = '', difficulty = 'medium';
-      
+      let question = '';
+      let options = [];
+      let correctAnswer = '';
+      let explanation = '';
+      let difficulty = 'medium';
+
       for (const line of lines) {
         const trimmed = line.trim();
+
         if (trimmed.startsWith('Q:')) {
           question = trimmed.substring(2).trim();
         } else if (trimmed.match(/^O\d:/)) {
@@ -149,16 +186,25 @@ ${text.substring(0, 15000)}`;
           }
         }
       }
-      
+
       if (question && options.length === 4 && correctAnswer) {
-        questions.push({ question, options, correctAnswer, explanation, difficulty });
+        questions.push({
+          question,
+          options,
+          correctAnswer,
+          explanation,
+          difficulty
+        });
       }
     }
-    
+
+    if (!questions.length) {
+      throw new Error("Aucune question valide n'a pu être générée.");
+    }
+
     return questions.slice(0, numQuestions);
   } catch (error) {
-    console.error('Gemini API error:', error);
-    throw new Error('Failed to generate quiz');
+    handleGeminiError(error, "❌ Erreur lors de la génération du quiz.");
   }
 };
 
@@ -168,6 +214,10 @@ ${text.substring(0, 15000)}`;
  * @returns {Promise<string>}
  */
 export const generateSummary = async (text) => {
+  if (!text || text.trim().length < 50) {
+    throw new Error("Le document est trop court pour générer un résumé.");
+  }
+
   const prompt = `Tu es un assistant pédagogique francophone.
 
 Fais un résumé clair, structuré et concis du texte suivant en français.
@@ -187,14 +237,19 @@ ${text.substring(0, 20000)}`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite",
+      model: GEMINI_MODEL,
       contents: prompt,
     });
-    const generatedText = response.text;
+
+    const generatedText = response.text || '';
+
+    if (!generatedText.trim()) {
+      throw new Error("Le résumé généré est vide.");
+    }
+
     return generatedText;
   } catch (error) {
-    console.error('Gemini API error:', error);
-    throw new Error('Failed to generate summary');
+    handleGeminiError(error, "❌ Erreur lors de la génération du résumé.");
   }
 };
 
@@ -215,6 +270,10 @@ export const chatWithContext = async ({
   documentTitle = '',
   chatHistory = []
 }) => {
+  if (!question || !question.trim()) {
+    throw new Error("La question ne peut pas être vide.");
+  }
+
   const context = chunks.length
     ? chunks.map((c, i) => `[Chunk ${i + 1}]\n${c.content}`).join('\n\n')
     : 'No relevant course context found.';
@@ -235,8 +294,7 @@ Your mission:
 1. Prioritize the document context when it helps answer the user's question.
 2. If the context is incomplete or missing, you may still answer using your general knowledge.
 3. If the question is clearly outside the course/document context, you should still answer helpfully.
-4. However, when the question is outside the course or only weakly related to it, you must end your answer with a gentle refocusing sentence in French, such as:
-"Toutefois, je pense qu'il serait mieux de se concentrer sur le cours, tu ne penses pas ?"
+4. However, when the question is outside the course or only weakly related to it, you must end your answer with a gentle refocusing sentence in French.
 
 Important rules:
 - Do NOT say bluntly that the context does not contain the answer.
@@ -262,15 +320,19 @@ Answer:
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite",
+      model: GEMINI_MODEL,
       contents: prompt,
     });
 
-    const generatedText = response.text;
+    const generatedText = response.text || '';
+
+    if (!generatedText.trim()) {
+      throw new Error("La réponse générée est vide.");
+    }
+
     return generatedText;
   } catch (error) {
-    console.error('Gemini API error:', error);
-    throw new Error('Failed to process chat request');
+    handleGeminiError(error, "❌ Erreur lors du traitement de la requête IA.");
   }
 };
 
@@ -281,6 +343,10 @@ Answer:
  * @returns {Promise<string>}
  */
 export const explainConcept = async (concept, context) => {
+  if (!concept || !concept.trim()) {
+    throw new Error("Le concept à expliquer ne peut pas être vide.");
+  }
+
   const prompt = `Tu es un assistant pédagogique francophone.
 
 Explique en français le concept suivant : "${concept}"
@@ -296,17 +362,22 @@ Consignes :
 - Si le concept est ambigu, donne l'interprétation la plus probable selon le contexte
 
 Contexte :
-${context.substring(0, 10000)}`;
+${(context || '').substring(0, 10000)}`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite",
+      model: GEMINI_MODEL,
       contents: prompt,
     });
-    const generatedText = response.text;
+
+    const generatedText = response.text || '';
+
+    if (!generatedText.trim()) {
+      throw new Error("L'explication générée est vide.");
+    }
+
     return generatedText;
   } catch (error) {
-    console.error('Gemini API error:', error);
-    throw new Error('Failed to explain concept');
+    handleGeminiError(error, "❌ Erreur lors de l’explication du concept.");
   }
 };
