@@ -22,7 +22,7 @@ const router = express.Router();
 router.get('/test-email', async (req, res) => {
   try {
     await sendEmail({
-      to: "tonemail@outlook.com", // mets ton email ici
+      to: "benjaminmeelner@gmail.com", // mets ton email ici
       subject: "Test email Scolaris",
       text: "Si tu reçois ce message, tout fonctionne !",
       html: "<h1>Test réussi 🎉</h1>",
