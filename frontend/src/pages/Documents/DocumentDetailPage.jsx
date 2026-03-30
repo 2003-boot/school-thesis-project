@@ -122,7 +122,8 @@ const DocumentDetailPage = () => {
   if (!document) {
     return <div className="text-center p-8">Document introuvable.</div>;
   }
-
+  console.log("filePath from API:", document?.data?.filePath);
+  console.log("pdfUrl resolved:", getPdfUrl());
   return (
     <div>
       <div className="mb-4">

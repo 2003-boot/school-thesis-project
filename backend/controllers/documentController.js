@@ -3,8 +3,8 @@ import Flashcard from '../models/Flashcard.js';
 import Quiz from '../models/Quiz.js';
 import { extractTextFromPDF } from '../utils/pdfParser.js';
 import { chunkText } from '../utils/textChunker.js';
+import cloudinary from '../utils/cloudinary.js';
 import fs from 'fs/promises';
-import path from 'path';
 import mongoose from 'mongoose';
 
 // @desc    Upload PDF document
@@ -31,19 +31,26 @@ export const uploadDocument = async (req, res, next) => {
       });
     }
 
-    const baseUrl =
-      process.env.BASE_URL || `http://localhost:${process.env.PORT || 8000}`;
-    const fileUrl = `${baseUrl}/uploads/documents/${req.file.filename}`;
+    // Upload PDF to Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(req.file.path, {
+      resource_type: 'raw',
+      folder: 'ai-learning-assistant/documents',
+      use_filename: true,
+      unique_filename: true,
+    });
 
+    // Create document record
     const document = await Document.create({
       userId: req.user._id,
       title,
       fileName: req.file.originalname,
-      filePath: fileUrl,
+      filePath: uploadResult.secure_url,
       fileSize: req.file.size,
-      status: 'processing'
+      status: 'processing',
+      cloudinaryPublicId: uploadResult.public_id,
     });
 
+    // Process PDF text from temporary local file
     processPDF(document._id, req.file.path).catch((err) => {
       console.error('PDF processing error:', err);
     });
@@ -74,6 +81,9 @@ const processPDF = async (documentId, filePath) => {
       status: 'ready'
     });
 
+    // Delete temporary local file after processing
+    await fs.unlink(filePath).catch(() => {});
+
     console.log(`Document ${documentId} processed successfully`);
   } catch (error) {
     console.error(`Error processing document ${documentId}:`, error);
@@ -81,6 +91,8 @@ const processPDF = async (documentId, filePath) => {
     await Document.findByIdAndUpdate(documentId, {
       status: 'failed'
     });
+
+    await fs.unlink(filePath).catch(() => {});
   }
 };
 
@@ -124,7 +136,7 @@ export const getDocuments = async (req, res, next) => {
         }
       },
       {
-        $sort: { createdAt: -1 }
+        $sort: { uploadDate: -1 }
       }
     ]);
 
@@ -200,12 +212,11 @@ export const deleteDocument = async (req, res, next) => {
       });
     }
 
-    if (document.filePath) {
-      const uploadsDir = path.join(process.cwd(), 'uploads', 'documents');
-      const fileName = document.filePath.split('/').pop();
-      const localFilePath = path.join(uploadsDir, fileName);
-
-      await fs.unlink(localFilePath).catch(() => {});
+    // Delete from Cloudinary
+    if (document.cloudinaryPublicId) {
+      await cloudinary.uploader.destroy(document.cloudinaryPublicId, {
+        resource_type: 'raw',
+      }).catch(() => {});
     }
 
     await document.deleteOne();
