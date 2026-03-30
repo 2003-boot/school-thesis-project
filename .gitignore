@@ -1,0 +1,20 @@
+# Root .gitignore
+node_modules/
+dist/
+build/
+.env
+*.log
+.DS_Store
+
+# Ignore everything inside backend & frontend cache folders
+backend/node_modules/
+backend/dist/
+backend/build/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# Optional but useful
+.env.local
+.env.development
+.env.production

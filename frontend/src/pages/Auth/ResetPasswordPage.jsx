@@ -1,0 +1,120 @@
+import React, { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import authService from "../../services/authService";
+import toast from "react-hot-toast";
+import { Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import logo from "/logo.png";
+
+const ResetPasswordPage = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const queryParams = new URLSearchParams(location.search);
+  const token = queryParams.get("token") || "";
+
+  const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    if (newPassword.length < 6) {
+      setError("Le mot de passe doit contenir au moins 6 caractères.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await authService.resetPassword(token, newPassword);
+      toast.success("Mot de passe réinitialisé avec succès.");
+      navigate("/login");
+    } catch (err) {
+      const message = err.error || err.message || "Impossible de réinitialiser le mot de passe.";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-slate-50 via-white to-slate-50 px-6">
+      <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] bg-size-[16px_16px] opacity-30" />
+
+      <div className="relative w-full max-w-md">
+        <div className="rounded-3xl border border-slate-200/60 bg-white/80 p-10 shadow-xl shadow-slate-200/50 backdrop-blur-xl">
+          <div className="mb-8 text-center">
+            <div className="flex justify-center">
+              <img src={logo} alt="app logo" height={110} width={110} />
+            </div>
+            <h1 className="mb-2 text-2xl font-medium text-slate-900">
+              Nouveau mot de passe
+            </h1>
+            <p className="text-sm text-slate-500">
+              Choisis un nouveau mot de passe pour ton compte.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold uppercase tracking-wide text-slate-700">
+                Nouveau mot de passe
+              </label>
+
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+                  <Lock className="h-5 w-5" />
+                </div>
+
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="h-12 w-full rounded-xl border-2 border-slate-200 bg-slate-50/50 pl-12 pr-12 text-sm font-medium text-slate-900 transition-all duration-200 focus:border-blue-500 focus:bg-white focus:outline-none"
+                  placeholder="••••••••"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 transition-colors hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                <p className="text-center text-xs font-medium text-red-600">{error}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || !token}
+              className="group relative h-12 w-full overflow-hidden rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-sm font-semibold text-white shadow-lg shadow-emerald-500/25 transition-all duration-200 hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                {loading ? (
+                  "Réinitialisation..."
+                ) : (
+                  <>
+                    Réinitialiser le mot de passe
+                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+                  </>
+                )}
+              </span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ResetPasswordPage;
