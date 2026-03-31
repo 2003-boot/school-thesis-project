@@ -436,3 +436,40 @@ export const socrateChat = async (req, res, next) => {
     next(error);
   }
 };
+
+
+// @desc    Générer une mind map depuis un document
+// @route   POST /api/ai/generate-mindmap
+// @access  Private
+export const generateMindMap = async (req, res, next) => {
+  try {
+    const { documentId } = req.body;
+
+    if (!documentId) {
+      return res.status(400).json({ success: false, error: 'documentId requis', statusCode: 400 });
+    }
+
+    const document = await Document.findOne({
+      _id: documentId,
+      userId: req.user._id,
+      status: 'ready'
+    });
+
+    if (!document) {
+      return res.status(404).json({ success: false, error: 'Document non trouvé', statusCode: 404 });
+    }
+
+    const mindMap = await geminiService.generateMindMap(
+      document.extractedText,
+      document.title
+    );
+
+    res.status(200).json({
+      success: true,
+      data: { documentId: document._id, title: document.title, mindMap },
+      message: 'Mind map générée avec succès'
+    });
+  } catch (error) {
+    next(error);
+  }
+};

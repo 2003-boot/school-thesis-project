@@ -67,6 +67,17 @@ const socrateChat = async (documentId, message) => {
   }
 };
 
+const generateMindMap = async (documentId) => {
+  try {
+    const response = await axiosInstance.post(API_PATHS.AI.GENERATE_MINDMAP, { documentId });
+    return response.data?.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Erreur génération mind map' };
+  }
+};
+
+
+
 
 
 const aiService = {
@@ -76,7 +87,8 @@ const aiService = {
   chat,
   explainConcept,
   getChatHistory,
-  socrateChat
+  socrateChat,
+  generateMindMap
 };
 
 export default aiService;

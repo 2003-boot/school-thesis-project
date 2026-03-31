@@ -465,3 +465,76 @@ Ta réponse (1 seule question, maximum 3 lignes) :`;
     handleGeminiError(error, "❌ Erreur en mode Socrate.");
   }
 };
+
+/**
+ * Génère une mind map structurée depuis un document
+ * @param {string} text - Texte extrait du document
+ * @param {string} documentTitle - Titre du document
+ * @returns {Promise<{nodes: Array, edges: Array}>}
+ */
+export const generateMindMap = async (text, documentTitle = 'Document') => {
+  if (!text || text.trim().length < 50) {
+    throw new Error("Le document est trop court pour générer une mind map.");
+  }
+
+  const prompt = `Tu es un assistant pédagogique expert en synthèse visuelle.
+
+Analyse le texte suivant et génère une mind map structurée en JSON.
+
+RÈGLES STRICTES :
+- Le nœud central (id: "root") représente le thème principal du document
+- Maximum 5 branches principales (enfants directs du root)
+- Chaque branche peut avoir 2 à 4 sous-nœuds maximum
+- Les labels doivent être COURTS : maximum 4 mots par nœud
+- Réponds UNIQUEMENT avec le JSON valide, sans aucun texte avant ou après, sans backticks
+
+FORMAT JSON ATTENDU :
+{
+  "nodes": [
+    { "id": "root", "label": "Thème central", "level": 0 },
+    { "id": "n1", "label": "Branche 1", "level": 1 },
+    { "id": "n1-1", "label": "Sous-concept", "level": 2 },
+    { "id": "n1-2", "label": "Autre détail", "level": 2 }
+  ],
+  "edges": [
+    { "source": "root", "target": "n1" },
+    { "source": "n1", "target": "n1-1" },
+    { "source": "n1", "target": "n1-2" }
+  ]
+}
+
+Titre du document : "${documentTitle}"
+
+Texte :
+${text.substring(0, 18000)}`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+    });
+
+    const raw = (response.text || '').trim()
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim();
+
+    const parsed = JSON.parse(raw);
+
+    if (!parsed.nodes || !parsed.edges || !Array.isArray(parsed.nodes)) {
+      throw new Error("Structure JSON invalide retournée par Gemini.");
+    }
+
+    // Sanity check : s'assurer que root existe
+    const hasRoot = parsed.nodes.some(n => n.id === 'root');
+    if (!hasRoot) throw new Error("Nœud root manquant dans la mind map.");
+
+    return parsed;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error("❌ Gemini a retourné un JSON invalide pour la mind map.");
+    }
+    handleGeminiError(error, "❌ Erreur lors de la génération de la mind map.");
+  }
+};

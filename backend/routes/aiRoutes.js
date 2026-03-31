@@ -6,7 +6,8 @@ import {
   chat,
   explainConcept,
   getChatHistory,
-  socrateChat 
+  socrateChat,
+  generateMindMap,
 } from '../controllers/aiController.js';
 import protect from '../middleware/auth.js';
 
@@ -20,6 +21,7 @@ router.post('/generate-summary', generateSummary);
 router.post('/chat', chat);
 router.post('/explain-concept', explainConcept);
 router.post('/socrate-chat', socrateChat);
+router.post('/generate-mindmap', generateMindMap);
 router.get('/chat-history/:documentId', getChatHistory);
 
 export default router;
