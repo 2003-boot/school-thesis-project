@@ -29,7 +29,6 @@ const QuizManager = ({ documentId }) => {
   const [deleting, setDeleting]               = useState(false);
   const [selectedQuiz, setSelectedQuiz]       = useState(null);
 
-  // Mode examen
   const [isExamModalOpen, setIsExamModalOpen] = useState(false);
   const [examQuiz, setExamQuiz]               = useState(null);
   const [timeLimit, setTimeLimit]             = useState(null);
@@ -65,8 +64,8 @@ const QuizManager = ({ documentId }) => {
     }
   };
 
-  const handleDeleteRequest  = (quiz) => { setSelectedQuiz(quiz); setIsDeleteModalOpen(true); };
-  const handleConfirmDelete  = async () => {
+  const handleDeleteRequest = (quiz) => { setSelectedQuiz(quiz); setIsDeleteModalOpen(true); };
+  const handleConfirmDelete = async () => {
     if (!selectedQuiz) return;
     setDeleting(true);
     try {
@@ -82,8 +81,8 @@ const QuizManager = ({ documentId }) => {
     }
   };
 
-  const handleOpenExamModal  = (quiz) => { setExamQuiz(quiz); setTimeLimit(null); setIsExamModalOpen(true); };
-  const handleStartExam      = () => {
+  const handleOpenExamModal = (quiz) => { setExamQuiz(quiz); setTimeLimit(null); setIsExamModalOpen(true); };
+  const handleStartExam     = () => {
     setIsExamModalOpen(false);
     navigate(`/quizzes/${examQuiz._id}/take`, { state: { examMode: true, timeLimit } });
   };
@@ -100,17 +99,12 @@ const QuizManager = ({ documentId }) => {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {quizzes.map((quiz) => (
-          <div key={quiz._id} className="relative group">
-            <QuizCard quiz={quiz} onDelete={handleDeleteRequest} />
-            {/* Bouton Mode Examen par-dessus la card */}
-            <button
-              onClick={() => handleOpenExamModal(quiz)}
-              className="absolute bottom-3 left-3 right-3 h-9 bg-gradient-to-r from-orange-400 to-amber-500 text-white text-xs font-semibold rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center gap-1.5 shadow-lg shadow-orange-200 hover:from-orange-500 hover:to-amber-600 active:scale-95"
-            >
-              <Timer className="w-3.5 h-3.5" />
-              Mode Examen
-            </button>
-          </div>
+          <QuizCard
+            key={quiz._id}
+            quiz={quiz}
+            onDelete={handleDeleteRequest}
+            onExam={() => handleOpenExamModal(quiz)}
+          />
         ))}
       </div>
     );
