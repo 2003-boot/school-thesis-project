@@ -66,7 +66,7 @@ const QuizCard = ({ quiz, onDelete, onExam }) => {
         {onExam && (
           <button
             onClick={(e) => { e.stopPropagation(); onExam(); }}
-            className="w-full h-9 bg-gradient-to-r from-orange-400 to-amber-500 hover:from-orange-500 hover:to-amber-600 text-white text-xs font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 shadow-md shadow-orange-200 active:scale-95"
+            className="cursor-pointer w-full h-9 bg-gradient-to-r from-orange-400 to-amber-500 hover:from-orange-500 hover:to-amber-600 text-white text-xs font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 shadow-md shadow-orange-200 active:scale-95 mt-2"
           >
             <Timer className="w-3.5 h-3.5" />
             Mode Examen
