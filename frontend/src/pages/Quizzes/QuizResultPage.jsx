@@ -4,7 +4,7 @@ import quizService from '../../services/quizService';
 import PageHeader from '../../components/common/PageHeader';
 import Spinner from '../../components/common/Spinner';
 import toast from 'react-hot-toast';
-import { ArrowLeft, CheckCircle2, XCircle, Trophy, Target, BookOpen } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Trophy, Target, BookOpen, Timer } from 'lucide-react';
 
 const QuizResultPage = () => {
   const { quizId } = useParams();
@@ -135,6 +135,75 @@ const QuizResultPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Rapport de performance — Mode Examen */}
+      {quiz?.avgTimePerQuestion && (
+        <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Temps moyen */}
+          <div className="rounded-2xl border border-slate-200 bg-white/80 p-5 text-center shadow-md">
+            <Timer className="w-6 h-6 text-orange-500 mx-auto mb-2" strokeWidth={2} />
+            <div className="text-2xl font-bold text-slate-900">{quiz.avgTimePerQuestion}s</div>
+            <div className="text-xs text-slate-500 font-medium mt-1">Temps moyen / question</div>
+          </div>
+
+          {/* Taux de réussite */}
+          <div className="rounded-2xl border border-slate-200 bg-white/80 p-5 text-center shadow-md">
+            <Target className="w-6 h-6 text-blue-500 mx-auto mb-2" strokeWidth={2} />
+            <div className="text-2xl font-bold text-slate-900">{score}%</div>
+            <div className="text-xs text-slate-500 font-medium mt-1">Taux de réussite</div>
+          </div>
+
+          {/* Mention */}
+          <div className={`rounded-2xl border p-5 text-center shadow-md ${
+            score >= 80 ? 'border-emerald-200 bg-emerald-50' :
+            score >= 60 ? 'border-amber-200 bg-amber-50'    :
+                        'border-rose-200 bg-rose-50'
+          }`}>
+            <Trophy className={`w-6 h-6 mx-auto mb-2 ${
+              score >= 80 ? 'text-emerald-600' : score >= 60 ? 'text-amber-600' : 'text-rose-600'
+            }`} strokeWidth={2} />
+            <div className={`text-lg font-bold ${
+              score >= 80 ? 'text-emerald-800' : score >= 60 ? 'text-amber-800' : 'text-rose-800'
+            }`}>
+              {score >= 80 ? 'Excellent' : score >= 60 ? 'Bien' : 'À améliorer'}
+            </div>
+            <div className={`text-xs font-medium mt-1 ${
+              score >= 80 ? 'text-emerald-600' : score >= 60 ? 'text-amber-600' : 'text-rose-600'
+            }`}>Mention</div>
+          </div>
+        </div>
+      )}
+
+      {/* Graphique de progression par question */}
+      {quiz?.questionTimings?.length > 0 && (
+        <div className="mb-8 rounded-2xl border border-slate-200 bg-white/80 p-6 shadow-md">
+          <h4 className="text-sm font-semibold text-slate-700 mb-4">Temps passé par question</h4>
+          <div className="flex items-end gap-2 h-24">
+            {quiz.questionTimings.map((t, i) => {
+              const result   = detailedResults[t.questionIndex];
+              const maxTime  = Math.max(...quiz.questionTimings.map(x => x.timeSpent), 1);
+              const height   = Math.max(8, Math.round((t.timeSpent / maxTime) * 80));
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="text-xs text-slate-400">{t.timeSpent}s</div>
+                  <div
+                    className={`w-full rounded-t-md transition-all ${
+                      result?.isCorrect ? 'bg-emerald-400' : 'bg-rose-400'
+                    }`}
+                    style={{ height: `${height}px` }}
+                    title={`Q${t.questionIndex + 1} — ${t.timeSpent}s`}
+                  />
+                  <div className="text-xs text-slate-500 font-medium">{t.questionIndex + 1}</div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-400 inline-block" /> Bonne réponse</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-rose-400 inline-block" /> Mauvaise réponse</span>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-6">
         <div className="mb-2 flex items-center gap-3">

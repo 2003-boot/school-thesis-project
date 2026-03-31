@@ -54,85 +54,22 @@ export const getQuizById = async (req, res, next) => {
 // @access  Private
 export const submitQuiz = async (req, res, next) => {
   try {
-    const { answers } = req.body;
+    const { answers, questionTimings } = req.body;  // ← ajouter questionTimings
 
-    if (!Array.isArray(answers)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Please provide answers array',
-        statusCode: 400
-      });
+    // ... (tout le code existant reste identique jusqu'à quiz.save()) ...
+
+    // Juste avant quiz.save(), ajouter :
+    if (Array.isArray(questionTimings) && questionTimings.length > 0) {
+      quiz.questionTimings = questionTimings;
     }
-
-    const quiz = await Quiz.findOne({
-      _id: req.params.id,
-      userId: req.user._id
-    });
-
-    if (!quiz) {
-      return res.status(404).json({
-        success: false,
-        error: 'Quiz not found',
-        statusCode: 404
-      });
-    }
-
-    if (quiz.completedAt) {
-      return res.status(400).json({
-        success: false,
-        error: 'Quiz already completed',
-        statusCode: 400
-      });
-    }
-
-    let correctCount = 0;
-    const userAnswers = [];
-
-    answers.forEach((answer) => {
-      const { questionIndex, selectedAnswer } = answer;
-
-      if (
-        typeof questionIndex === 'number' &&
-        questionIndex >= 0 &&
-        questionIndex < quiz.questions.length
-      ) {
-        const question = quiz.questions[questionIndex];
-
-        let correctAnswerText = question.correctAnswer;
-
-        if (
-          typeof question.correctAnswer === 'string' &&
-          /^O\d+$/.test(question.correctAnswer)
-        ) {
-          const correctIndex = parseInt(question.correctAnswer.substring(1), 10) - 1;
-          correctAnswerText = question.options[correctIndex] || '';
-        }
-
-        const normalizedSelectedAnswer = (selectedAnswer || '').trim();
-        const normalizedCorrectAnswer = (correctAnswerText || '').trim();
-
-        const isCorrect = normalizedSelectedAnswer === normalizedCorrectAnswer;
-
-        if (isCorrect) correctCount++;
-
-        userAnswers.push({
-          questionIndex,
-          selectedAnswer,
-          isCorrect,
-          answeredAt: new Date()
-        });
-      }
-    });
-
-    const score = quiz.totalQuestions > 0
-      ? Math.round((correctCount / quiz.totalQuestions) * 100)
-      : 0;
-
-    quiz.userAnswers = userAnswers;
-    quiz.score = score;
-    quiz.completedAt = new Date();
 
     await quiz.save();
+
+    // Dans la réponse, ajouter avgTimePerQuestion :
+    const totalTime = (questionTimings || []).reduce((sum, t) => sum + (t.timeSpent || 0), 0);
+    const avgTime = questionTimings?.length > 0
+      ? Math.round(totalTime / questionTimings.length)
+      : null;
 
     res.status(200).json({
       success: true,
@@ -142,7 +79,8 @@ export const submitQuiz = async (req, res, next) => {
         correctCount,
         totalQuestions: quiz.totalQuestions,
         percentage: score,
-        userAnswers
+        userAnswers,
+        avgTimePerQuestion: avgTime,   // ← nouveau
       },
       message: 'Quiz submitted successfully'
     });
@@ -201,7 +139,14 @@ export const getQuizResults = async (req, res, next) => {
           document: quiz.documentId,
           score: quiz.score,
           totalQuestions: quiz.totalQuestions,
-          completedAt: quiz.completedAt
+          completedAt: quiz.completedAt,
+          timeLimitPerQuestion: quiz.timeLimitPerQuestion,
+          questionTimings: quiz.questionTimings,
+          avgTimePerQuestion: quiz.questionTimings?.length > 0
+            ? Math.round(
+                quiz.questionTimings.reduce((s, t) => s + t.timeSpent, 0) / quiz.questionTimings.length
+              )
+            : null,
         },
         results: detailedResults
       }

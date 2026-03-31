@@ -69,7 +69,15 @@ const quizSchema = new mongoose.Schema({
   completedAt: {
     type: Date,
     default: null
-  }
+  },
+  timeLimitPerQuestion: {
+    type: Number,
+    default: null,   // null = pas de limite, sinon secondes
+  },
+  questionTimings: [{
+    questionIndex: { type: Number },
+    timeSpent:     { type: Number },  // secondes passées sur la question
+  }],
 }, {
   timestamps: true
 });
