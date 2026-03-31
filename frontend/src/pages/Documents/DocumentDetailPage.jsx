@@ -23,7 +23,7 @@ const DocumentDetailPage = () => {
         const data = await documentService.getDocumentById(id);
         setDocument(data);
       } catch (error) {
-        toast.error('Impossible de récupérer les détails du document.');
+        toast.error('Impossible de récupérer les détails du cours.');
         console.error(error);
       } finally {
         setLoading(false);
@@ -132,7 +132,7 @@ const DocumentDetailPage = () => {
           className="inline-flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
         >
           <ArrowLeft size={16} />
-          Retour aux documents
+          Retour aux cours
         </Link>
       </div>
 

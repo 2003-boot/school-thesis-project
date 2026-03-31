@@ -59,7 +59,7 @@ const DocumentListPage = () => {
 
     try {
       await documentService.uploadDocument(formData);
-      toast.success("Document importé avec succès !");
+      toast.success("Cours importé avec succès !");
       setIsUploadModalOpen(false);
       setUploadFile(null);
       setUploadTitle("");
@@ -113,10 +113,10 @@ const DocumentListPage = () => {
               />
             </div>
             <h3 className="text-xl font-medium text-slate-900 tracking-tight mb-2">
-              Pas encore de documents
+              Pas encore de cours importé
             </h3>
             <p className="text-sm text-slate-500 mb-6">
-              Commencez par télécharger votre premier document PDF pour commencer
+              Commence par télécharger ton premier cours PDF pour commencer
               l'apprentissage.
             </p>
             <button
@@ -124,7 +124,7 @@ const DocumentListPage = () => {
               className="cursor-pointer inline-flex items-center gap-2 px-6 py-3 bg-linear-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30 active:scale-[0.98]"
             >
               <Plus className="w-4 h-4" strokeWidth={2.5} />
-              Importer un document
+              Importer un cours
             </button>
           </div>
         </div>
@@ -154,16 +154,16 @@ const DocumentListPage = () => {
         <div className="flex items-center justify-between mb-10">
           <div>
             <h1 className="text-2xl font-medium text-slate-900 tracking-tight mb-2">
-            Mes documents
+            Mes cours
             </h1>
             <p className="text-slate-500 text-sm">
-              Gérer et organiser tes supports d’apprentissage
+              Gère et organise tes supports d'apprentissage
             </p>
           </div>
           {documents.length > 0 && (
             <Button onClick={() => setIsUploadModalOpen(true)}>
               <Plus className="w-4 h-4" strokeWidth={2.5} />
-              Importer un document
+              Importer un cours
             </Button>
           )}
         </div>
@@ -185,10 +185,10 @@ const DocumentListPage = () => {
             {/* Modal Header */}
             <div className="mb-6">
               <h2 className="text-xl font-medium text-slate-900 tracking-tight">
-                Importer un nouveau document
+                Importer un nouveau cours
               </h2>
               <p className="text-sm text-slate-500 mt-1">
-                Ajouter un document PDF à votre bibliothèque
+                Ajoute un cours PDF à ta bibliothèque
               </p>
             </div>
 
@@ -197,7 +197,7 @@ const DocumentListPage = () => {
               {/* Title Input */}
               <div className="space-y-2">
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide">
-                  titre du document
+                  titre du cours
                 </label>
                 <input
                   type="text"
@@ -301,7 +301,7 @@ const DocumentListPage = () => {
 
             {/* Content */}
             <p className="text-sm text-slate-600 mb-6">
-              Es-tu sûr de vouloir supprimer le document:{" "}
+              Es-tu sûr de vouloir supprimer ce cours:{" "}
               <span className="font-semibold text-slate-900">
                 {selectedDoc?.title}
               </span>

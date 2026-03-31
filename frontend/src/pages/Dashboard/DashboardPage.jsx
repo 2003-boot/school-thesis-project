@@ -45,7 +45,7 @@ const DashboardPage = () => {
 
   const stats = [
     {
-      label: 'Total des documents',
+      label: 'Total des Cours',
       value: dashboardData.overview.totalDocuments,
       icon: FileText,
       gradient: 'from-blue-400 to-cyan-500',
@@ -147,7 +147,7 @@ const DashboardPage = () => {
                             : 'bg-linear-to-r from-blue-400 to-blue-500'
                         }`} />
                         <p className="text-sm font-medium text-slate-900 truncate">
-                          {activity.type === 'document' ? 'Document accédé: ' : 'Quiz tenté: '}
+                          {activity.type === 'document' ? 'Cours etudié: ' : 'Quiz tenté: '}
                           <span className="text-slate-700">{activity.description}</span>
                         </p>
                       </div>
