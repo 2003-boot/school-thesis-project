@@ -46,12 +46,40 @@ const deleteFlashcardSet = async (id) => {
     }
 };
 
+const srsReview = async (cardId, quality) => {
+  try {
+    const response = await axiosInstance.post(
+      API_PATHS.FLASHCARDS.SRS_REVIEW(cardId),
+      { quality }
+    );
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Erreur SRS review' };
+  }
+};
+
+const getDueCards = async (flashcardSetId) => {
+  try {
+    const response = await axiosInstance.get(
+      API_PATHS.FLASHCARDS.GET_DUE_CARDS(flashcardSetId)
+    );
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Erreur récupération cartes dues' };
+  }
+};
+
+
 const flashcardService = {
   getAllFlashcardSets,
   getFlashcardsForDocument,
   reviewFlashcard,
   toggleStar,
   deleteFlashcardSet,
+  srsReview,    
+  getDueCards,  
 };
+
+
 
 export default flashcardService;
