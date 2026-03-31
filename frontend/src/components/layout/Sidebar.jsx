@@ -24,7 +24,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
 
   const navLinks = [
     { to: '/dashboard', icon: LayoutDashboard, text: 'Dashboard' },
-    { to: '/documents', icon: FileText, text: 'Documents' },
+    { to: '/documents', icon: FileText, text: 'Mes cours' },
     { to: '/flashcards', icon: BookOpen, text: 'Flashcards' },
     { to: '/profile', icon: User, text: 'Profile' },
   ];
