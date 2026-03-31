@@ -381,3 +381,87 @@ ${(context || '').substring(0, 10000)}`;
     handleGeminiError(error, "❌ Erreur lors de l’explication du concept.");
   }
 };
+
+
+/**
+ * Socratic chat — IA qui guide par des questions
+ * @param {Object} params
+ * @param {string} params.userMessage - Message de l'utilisateur
+ * @param {Array} params.chunks - Chunks pertinents du document
+ * @param {string} params.documentTitle - Titre du document
+ * @param {Array} params.chatHistory - Historique récent
+ * @param {string} params.socratePhase - 'explore' | 'deepen' | 'conclude'
+ * @returns {Promise<string>}
+ */
+export const socraticChat = async ({
+  userMessage,
+  chunks = [],
+  documentTitle = '',
+  chatHistory = [],
+  socratePhase = 'explore'
+}) => {
+  if (!userMessage?.trim()) {
+    throw new Error("Le message ne peut pas être vide.");
+  }
+
+  const context = chunks.length
+    ? chunks.map((c, i) => `[Extrait ${i + 1}]\n${c.content}`).join('\n\n')
+    : 'Pas de contexte spécifique trouvé.';
+
+  const conversation = chatHistory.length
+    ? chatHistory.map(m => `${m.role === 'user' ? 'Étudiant' : 'Socrate'}: ${m.content}`).join('\n')
+    : 'Début de la conversation.';
+
+  const phaseInstructions = {
+    explore: `
+- C'est le début : explore ce que l'étudiant sait déjà.
+- Pose UNE seule question ouverte pour comprendre son niveau de départ.
+- Commence souvent par "Qu'est-ce que tu comprends par..." ou "Comment tu expliquerais...".`,
+    deepen: `
+- L'étudiant a commencé à répondre : creuse plus loin.
+- Rebondis sur CE QU'IL VIENT DE DIRE avec une question qui l'amène à préciser, corriger, ou approfondir.
+- Utilise des formulations comme "Intéressant, mais que se passe-t-il si...", "Pourquoi penses-tu que...", "Qu'est-ce qui te fait dire ça ?".`,
+    conclude: `
+- L'étudiant a montré une bonne compréhension.
+- Pose une question de synthèse ou d'application pratique.
+- Formulations : "Alors comment tu appliquerais ça à...", "Si tu devais expliquer ça à quelqu'un, tu dirais quoi ?".`
+  };
+
+  const prompt = `Tu es Socrate, un mentor pédagogique bienveillant. Tu n'expliques JAMAIS directement.
+Tu guides l'étudiant à découvrir lui-même les réponses en posant des questions ciblées.
+
+RÈGLES ABSOLUES :
+- Tu poses MAXIMUM une question par réponse (jamais deux questions dans le même message)
+- Tu ne donnes JAMAIS la réponse directement, même si l'étudiant la demande
+- Si l'étudiant est bloqué, donne un petit indice PUIS pose une question
+- Si l'étudiant donne une mauvaise réponse, ne la valide pas — questionne-la doucement
+- Si l'étudiant donne une bonne réponse, félicite brièvement puis approfondis
+- Reste toujours lié au document "${documentTitle}"
+- Réponds dans la même langue que l'étudiant
+
+Phase actuelle :${phaseInstructions[socratePhase]}
+
+Contexte du document :
+${context}
+
+Historique de la conversation :
+${conversation}
+
+Message de l'étudiant :
+${userMessage}
+
+Ta réponse (1 seule question, maximum 3 lignes) :`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+    });
+
+    const text = response.text || '';
+    if (!text.trim()) throw new Error("Réponse vide de Gemini.");
+    return text;
+  } catch (error) {
+    handleGeminiError(error, "❌ Erreur en mode Socrate.");
+  }
+};

@@ -352,3 +352,87 @@ export const getChatHistory = async (req, res, next) => {
     next(error)
   }
 };
+
+// @desc    Socratic chat with document
+// @route   POST /api/ai/socrate-chat
+// @access  Private
+export const socrateChat = async (req, res, next) => {
+  try {
+    const { documentId, message } = req.body;
+
+    if (!documentId || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'documentId et message sont requis',
+        statusCode: 400
+      });
+    }
+
+    const document = await Document.findOne({
+      _id: documentId,
+      userId: req.user._id,
+      status: 'ready'
+    });
+
+    if (!document) {
+      return res.status(404).json({
+        success: false,
+        error: 'Document non trouvé ou pas prêt',
+        statusCode: 404
+      });
+    }
+
+    // Récupérer ou créer l'historique
+    let chatHistory = await ChatHistory.findOne({
+      userId: req.user._id,
+      documentId: document._id
+    });
+
+    if (!chatHistory) {
+      chatHistory = await ChatHistory.create({
+        userId: req.user._id,
+        documentId: document._id,
+        messages: []
+      });
+    }
+
+    // Détecter la phase Socratique selon le nombre de tours
+    const turnCount = chatHistory.messages.filter(m => m.role === 'user').length;
+    let socratePhase = 'explore';
+    if (turnCount >= 2 && turnCount < 5) socratePhase = 'deepen';
+    if (turnCount >= 5) socratePhase = 'conclude';
+
+    // Trouver les chunks pertinents
+    const relevantChunks = findRelevantChunks(document.chunks, message, 3);
+
+    // Historique récent (6 derniers messages)
+    const recentMessages = chatHistory.messages.slice(-6).map(m => ({
+      role: m.role,
+      content: m.content
+    }));
+
+    // Appel Gemini en mode Socrate
+    const answer = await geminiService.socraticChat({
+      userMessage: message,
+      chunks: relevantChunks,
+      documentTitle: document.title,
+      chatHistory: recentMessages,
+      socratePhase
+    });
+
+    // Sauvegarder dans l'historique
+    chatHistory.messages.push(
+      { role: 'user', content: message, timestamp: new Date(), relevantChunks: [] },
+      { role: 'assistant', content: answer, timestamp: new Date(), relevantChunks: relevantChunks.map(c => c.chunkIndex) }
+    );
+    await chatHistory.save();
+
+    res.status(200).json({
+      success: true,
+      data: { question: message, answer, socratePhase },
+      message: 'Réponse Socratique générée'
+    });
+  } catch (error) {
+    next(error);
+  }
+};

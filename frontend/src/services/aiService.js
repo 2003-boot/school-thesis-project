@@ -55,6 +55,19 @@ const getChatHistory = async (documentId) => {
   }
 };
 
+const socrateChat = async (documentId, message) => {
+  try {
+    const response = await axiosInstance.post(API_PATHS.AI.SOCRATE_CHAT, {
+      documentId,
+      message
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Erreur mode Socrate' };
+  }
+};
+
+
 
 const aiService = {
   generateFlashcards,
@@ -63,6 +76,7 @@ const aiService = {
   chat,
   explainConcept,
   getChatHistory,
+  socrateChat
 };
 
 export default aiService;
