@@ -19,13 +19,6 @@ const Header = ({ toggleSidebar }) => {
         <div className="hidden md:block"></div>
 
         <div className="flex items-center gap-3">
-          
-          <button className="relative inline-flex items-center justify-center w-10 h-10 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all duration-200 group">
-            <Bell size={20} strokeWidth={2} className="group-hover:scale-110 transition-transform duration-200" />
-            
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full ring-2 ring-white"></span>
-          </button>
-
           {/* User Profile */}
           <div className="flex items-center gap-3 pl-3 border-l border-slate-200/60">
             <div className="flex items-center gap-3 px-3 py-1.5 rounded-xl hover:bg-slate-50 transition-colors duration-200 cursor-pointer group">
