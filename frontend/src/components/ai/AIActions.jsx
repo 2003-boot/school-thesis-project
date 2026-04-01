@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { Sparkles, BookOpen, Lightbulb, Network, X, Download } from "lucide-react";
 import aiService from "../../services/aiService";
@@ -19,6 +19,7 @@ const AIActions = () => {
   const [mindMapData, setMindMapData] = useState(null);
   const [showMindMap, setShowMindMap] = useState(false);
   const [mindMapTitle, setMindMapTitle] = useState("");
+  const mindMapRef = useRef(null);
 
   const handleGenerateSummary = async () => {
     setLoadingAction("summary");
@@ -71,9 +72,24 @@ const AIActions = () => {
 
   // Export SVG
   const handleExportSVG = () => {
-    const svg = document.querySelector('.mindmap-container svg');
-    if (!svg) return;
-    const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
+    const svg = mindMapRef.current;
+    if (!svg) {
+      toast.error('Impossible de trouver le SVG.');
+      return;
+    }
+
+    // Cloner le SVG pour ajouter un fond blanc
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+    // Ajouter fond blanc explicite
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bg.setAttribute('width', '100%');
+    bg.setAttribute('height', '100%');
+    bg.setAttribute('fill', 'white');
+    clone.insertBefore(bg, clone.firstChild);
+
+    const blob = new Blob([clone.outerHTML], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -217,7 +233,7 @@ const AIActions = () => {
             </div>
           </div>
           <div className="p-4 mindmap-container">
-            <MindMap data={mindMapData} />
+            <MindMap ref={mindMapRef} data={mindMapData} />
           </div>
         </div>
       )}

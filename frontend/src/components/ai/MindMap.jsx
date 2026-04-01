@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, forwardRef } from 'react';
 import { ZoomIn, ZoomOut, Maximize2, RotateCcw } from 'lucide-react';
 
 // ── Couleurs par niveau ────────────────────────────────────────────────────
@@ -80,7 +80,7 @@ const computeLayout = (nodes, edges) => {
 };
 
 // ── Composant principal ───────────────────────────────────────────────────
-const MindMap = ({ data }) => {
+const MindMap = forwardRef(({ data }, ref) => {
   const svgRef = useRef(null);
   const containerRef = useRef(null);
   const [zoom, setZoom] = useState(1);
@@ -186,7 +186,7 @@ const MindMap = ({ data }) => {
       </div>
 
       <svg
-        ref={svgRef}
+        ref={ref} 
         width="100%"
         height="100%"
         style={{ display: 'block' }}
@@ -276,6 +276,6 @@ const MindMap = ({ data }) => {
       </svg>
     </div>
   );
-};
+});
 
 export default MindMap;
