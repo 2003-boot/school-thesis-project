@@ -14,16 +14,16 @@ export const getDashboard = async (req, res, next) => {
 
     // ── Stats flashcards ───────────────────────────────────────────────
     const flashcardSets = await Flashcard.find({ userId });
-    let totalFlashcards   = 0;
-    let reviewedFlashcards = 0;
-    let starredFlashcards  = 0;
-    let srsLearned         = 0; // cartes avec repetitions >= 3
+    let totalFlashcards  = 0;
+    let starredFlashcards = 0;
+    let srsLearned        = 0; 
+    let masteredCards     = 0;  
 
     flashcardSets.forEach(set => {
-      totalFlashcards    += set.cards.length;
-      reviewedFlashcards += set.cards.filter(c => c.reviewCount > 0).length;
-      starredFlashcards  += set.cards.filter(c => c.isStarred).length;
-      srsLearned         += set.cards.filter(c => (c.repetitions || 0) >= 1).length;
+      totalFlashcards   += set.cards.length;
+      starredFlashcards += set.cards.filter(c => c.isStarred).length;
+      srsLearned        += set.cards.filter(c => (c.repetitions || 0) >= 1).length;
+      masteredCards     += set.cards.filter(c => (c.repetitions || 0) >= 2).length;
     });
 
     // ── Stats quiz ────────────────────────────────────────────────────
