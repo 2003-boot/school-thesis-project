@@ -23,7 +23,7 @@ export const getDashboard = async (req, res, next) => {
       totalFlashcards    += set.cards.length;
       reviewedFlashcards += set.cards.filter(c => c.reviewCount > 0).length;
       starredFlashcards  += set.cards.filter(c => c.isStarred).length;
-      srsLearned         += set.cards.filter(c => (c.repetitions || 0) >= 3).length;
+      srsLearned         += set.cards.filter(c => (c.repetitions || 0) >= 1).length;
     });
 
     // ── Stats quiz ────────────────────────────────────────────────────

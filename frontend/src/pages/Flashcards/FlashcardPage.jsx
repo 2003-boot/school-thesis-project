@@ -94,9 +94,15 @@ const FlashcardPage = () => {
           card._id === cardId ? { ...card, isStarred: !card.isStarred } : card
         )
       );
-      toast.success("la flashcard a été étoilée, statut mis à jour !");
+
+      const card = flashcards.find((c) => c._id === cardId);
+      if (card?.isStarred) {
+        toast.success("Flashcard retirée des favoris");
+      } else {
+        toast.success("Flashcard ajoutée aux favoris ⭐");
+      }
     } catch (error) {
-      toast.error("Échec de la mise à jour du statut d’étoile.");
+      toast.error("Échec de la mise à jour du statut d'étoile.");
     }
   };
 

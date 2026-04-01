@@ -185,7 +185,7 @@ const DashboardPage = () => {
             <div className="border-t border-slate-100 pt-4 grid grid-cols-3 gap-3">
               {[
                 { label: 'Meilleur score', value: `${overview.bestScore}%`, icon: Trophy, color: 'text-amber-500' },
-                { label: 'Cartes SRS',     value: overview.srsLearned,      icon: CheckCircle2, color: 'text-emerald-500' },
+                { label: 'Cartes révisées',     value: overview.srsLearned,      icon: CheckCircle2, color: 'text-emerald-500' },
                 { label: 'Favoris',        value: overview.starredFlashcards, icon: Star, color: 'text-yellow-500' },
               ].map((kpi, i) => (
                 <div key={i} className="text-center p-3 bg-slate-50 rounded-xl border border-slate-100">
@@ -214,7 +214,7 @@ const DashboardPage = () => {
                 bg: 'bg-blue-100',
               },
               {
-                label: 'Maîtrisées (SRS)',
+                label: 'Révisées (SRS)',
                 value: overview.srsLearned,
                 total: overview.totalFlashcards,
                 color: 'bg-emerald-500',
