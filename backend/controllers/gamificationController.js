@@ -23,7 +23,9 @@ export const getGamificationProfile = async (req, res, next) => {
     const perfectQuizzes    = completedQuizList.filter(q => q.score === 100).length;
     const highScoreQuizzes  = completedQuizList.filter(q => q.score >= 80).length;
     let masteredCards       = 0;
-    let mindMapsGenerated   = 0;
+    const mindMapsGenerated = user.xpHistory.filter(
+      h => h.reason === 'Mind map générée'
+    ).length;
 
     flashcardSets.forEach(set => {
       masteredCards += set.cards.filter(c => (c.repetitions || 0) >= 1).length;
