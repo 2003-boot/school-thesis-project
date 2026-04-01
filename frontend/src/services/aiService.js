@@ -76,6 +76,17 @@ const generateMindMap = async (documentId) => {
   }
 };
 
+const analyzeWeaknesses = async (quizId) => {
+  try {
+    const response = await axiosInstance.post(API_PATHS.AI.ANALYZE_WEAKNESSES, { quizId });
+    return response.data?.data;
+  } catch (error) {
+    throw error.response?.data || { message: 'Erreur analyse des lacunes' };
+  }
+};
+
+
+
 
 
 
@@ -88,7 +99,8 @@ const aiService = {
   explainConcept,
   getChatHistory,
   socrateChat,
-  generateMindMap
+  generateMindMap,
+  analyzeWeaknesses
 };
 
 export default aiService;

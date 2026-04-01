@@ -29,6 +29,7 @@ export const API_PATHS = {
     EXPLAIN_CONCEPT: "/api/ai/explain-concept",
     SOCRATE_CHAT: '/ai/socrate-chat',
     GENERATE_MINDMAP:   '/api/ai/generate-mindmap',
+    ANALYZE_WEAKNESSES: '/api/ai/analyze-weaknesses', 
     GET_CHAT_HISTORY: (documentId) => `/api/ai/chat-history/${documentId}`,
   },
 

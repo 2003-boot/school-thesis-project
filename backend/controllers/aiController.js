@@ -473,3 +473,72 @@ export const generateMindMap = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Analyser les lacunes d'un étudiant depuis un quiz
+// @route   POST /api/ai/analyze-weaknesses
+// @access  Private
+export const analyzeWeaknesses = async (req, res, next) => {
+  try {
+    const { quizId } = req.body;
+
+    if (!quizId) {
+      return res.status(400).json({ success: false, error: 'quizId requis', statusCode: 400 });
+    }
+
+    const quiz = await Quiz.findOne({ _id: quizId, userId: req.user._id })
+      .populate('documentId', 'title');
+
+    if (!quiz) {
+      return res.status(404).json({ success: false, error: 'Quiz introuvable', statusCode: 404 });
+    }
+
+    if (!quiz.completedAt) {
+      return res.status(400).json({ success: false, error: 'Quiz non complété', statusCode: 400 });
+    }
+
+    // Extraire uniquement les questions ratées
+    const wrongQuestions = quiz.userAnswers
+      .filter(a => !a.isCorrect)
+      .map(a => {
+        const q = quiz.questions[a.questionIndex];
+        return {
+          question:      q?.question     || '',
+          correctAnswer: q?.correctAnswer || '',
+          explanation:   q?.explanation  || '',
+          difficulty:    q?.difficulty   || 'medium',
+        };
+      })
+      .filter(q => q.question);
+
+    if (wrongQuestions.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          weaknesses:      [],
+          recommendations: [],
+          globalAdvice:    '🎉 Félicitations ! Tu as répondu correctement à toutes les questions. Continue comme ça !',
+          perfectScore:    true,
+        },
+        message: 'Aucune lacune détectée'
+      });
+    }
+
+    const analysis = await geminiService.analyzeWeaknesses(
+      wrongQuestions,
+      quiz.documentId?.title || ''
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...analysis,
+        wrongCount:  wrongQuestions.length,
+        totalCount:  quiz.totalQuestions,
+        perfectScore: false,
+      },
+      message: 'Analyse des lacunes générée'
+    });
+  } catch (error) {
+    next(error);
+  }
+};

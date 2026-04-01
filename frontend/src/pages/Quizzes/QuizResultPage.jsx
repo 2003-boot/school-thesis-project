@@ -4,6 +4,7 @@ import quizService from '../../services/quizService';
 import PageHeader from '../../components/common/PageHeader';
 import Spinner from '../../components/common/Spinner';
 import toast from 'react-hot-toast';
+import WeaknessAnalysis from '../../components/ai/WeaknessAnalysis';
 import { ArrowLeft, CheckCircle2, XCircle, Trophy, Target, BookOpen, Timer } from 'lucide-react';
 
 const QuizResultPage = () => {
@@ -204,6 +205,13 @@ const QuizResultPage = () => {
           </div>
         </div>
       )}
+
+      {/* Analyse des lacunes IA */}
+      {quiz?.id && (
+        <WeaknessAnalysis quizId={quiz.id} score={score} />
+      )}
+
+
 
       <div className="space-y-6">
         <div className="mb-2 flex items-center gap-3">

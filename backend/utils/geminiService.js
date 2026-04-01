@@ -538,3 +538,66 @@ ${text.substring(0, 18000)}`;
     handleGeminiError(error, "❌ Erreur lors de la génération de la mind map.");
   }
 };
+
+/**
+ * Analyse les lacunes d'un étudiant à partir de ses erreurs de quiz
+ * @param {Array} wrongQuestions - Questions ratées [{question, correctAnswer, explanation, difficulty}]
+ * @param {string} documentTitle - Titre du document
+ * @returns {Promise<{weaknesses: Array, recommendations: Array, globalAdvice: string}>}
+ */
+export const analyzeWeaknesses = async (wrongQuestions, documentTitle = '') => {
+  if (!wrongQuestions || wrongQuestions.length === 0) {
+    throw new Error("Aucune question incorrecte à analyser.");
+  }
+
+  const questionsText = wrongQuestions.map((q, i) =>
+    `Question ${i + 1}: ${q.question}\nBonne réponse: ${q.correctAnswer}\nExplication: ${q.explanation || 'N/A'}\nDifficulté: ${q.difficulty || 'medium'}`
+  ).join('\n\n');
+
+  const prompt = `Tu es un assistant pédagogique expert en analyse des difficultés d'apprentissage.
+
+Un étudiant a raté les questions suivantes dans un quiz sur le document "${documentTitle}".
+
+Analyse ses lacunes et génère une réponse JSON structurée.
+
+RÈGLES :
+- Identifie les thèmes/concepts où l'étudiant est faible
+- Donne des recommandations concrètes et actionnables
+- Sois bienveillant et encourageant
+- Réponds UNIQUEMENT en JSON valide, sans backticks ni texte autour
+
+FORMAT JSON ATTENDU :
+{
+  "weaknesses": [
+    { "theme": "Nom du concept faible", "description": "Pourquoi c'est difficile", "severity": "high|medium|low" }
+  ],
+  "recommendations": [
+    { "action": "Que faire concrètement", "priority": "high|medium|low" }
+  ],
+  "globalAdvice": "Conseil général motivant en 2-3 phrases"
+}
+
+Questions ratées :
+${questionsText}`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+    });
+
+    const raw = (response.text || '').trim()
+      .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+
+    const parsed = JSON.parse(raw);
+    if (!parsed.weaknesses || !parsed.recommendations) {
+      throw new Error("Structure JSON invalide.");
+    }
+    return parsed;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error("❌ Gemini a retourné un JSON invalide pour l'analyse.");
+    }
+    handleGeminiError(error, "❌ Erreur lors de l'analyse des lacunes.");
+  }
+};
