@@ -52,7 +52,7 @@ const QuizCard = ({ quiz, onDelete, onExam }) => {
           </Link>
         ) : (
           <Link to={`/quizzes/${quiz._id}`}>
-            <button className="cursor-pointer group/btn relative w-full h-11 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold text-sm rounded-xl transition-all duration-200 shadow-lg shadow-blue-200 active:scale-95 overflow-hidden">
+            <button className="cursor-pointer group/btn relative w-full h-11 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold text-sm rounded-xl transition-all duration-200 shadow-lg shadow-blue-200 active:scale-95 overflow-hidden mb-2">
               <span className="relative z-10 flex items-center justify-center gap-2">
                 <Play className="w-4 h-4" strokeWidth={2.5} />
                 Démarrer le quiz
@@ -62,7 +62,7 @@ const QuizCard = ({ quiz, onDelete, onExam }) => {
           </Link>
         )}
 
-        {/* Bouton Mode Examen — toujours visible, proprement en dessous */}
+
         {onExam && (
           <button
             onClick={(e) => { e.stopPropagation(); onExam(); }}
