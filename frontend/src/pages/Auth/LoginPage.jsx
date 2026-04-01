@@ -29,7 +29,7 @@ const LoginPage = () => {
       toast.success('Connexion réussie !');
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message || 'Failed to login. Please check your credentials.');
+      setError(err.message || 'Échec de la connexion. Veuillez vérifier vos identifiants.');
       toast.error(err.message || 'connexion échouée');
     } finally {
       setLoading(false);
