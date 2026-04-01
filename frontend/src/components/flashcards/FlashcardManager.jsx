@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Plus, ChevronLeft, ChevronRight, Trash2, ArrowLeft,
-  Sparkles, Brain, Clock, Zap, CheckCircle2, XCircle, AlertCircle,
+  Sparkles, Brain, Clock, Zap, CheckCircle2, Eye,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import moment from "moment";
@@ -15,32 +15,34 @@ import Flashcard from "./Flashcard";
 
 moment.locale("fr");
 
-// Boutons de qualité SRS
 const SRS_RATINGS = [
-  { quality: 1, label: "À revoir",  sublabel: "< 1 jour",  color: "bg-red-50 border-red-200 text-red-700 hover:bg-red-100" },
-  { quality: 2, label: "Difficile", sublabel: "~2 jours",  color: "bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100" },
-  { quality: 3, label: "Bien",      sublabel: "~1 semaine", color: "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100" },
+  { quality: 1, label: "À revoir",  sublabel: "< 1 jour",    color: "bg-red-50 border-red-200 text-red-700 hover:bg-red-100" },
+  { quality: 2, label: "Difficile", sublabel: "~2 jours",    color: "bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100" },
+  { quality: 3, label: "Bien",      sublabel: "~1 semaine",  color: "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100" },
   { quality: 4, label: "Facile",    sublabel: "~2 semaines", color: "bg-green-50 border-green-200 text-green-700 hover:bg-green-100" },
 ];
 
 const FlashcardManager = ({ documentId }) => {
-  const [flashcardSets, setFlashcardSets]     = useState([]);
-  const [selectedSet, setSelectedSet]         = useState(null);
-  const [loading, setLoading]                 = useState(true);
-  const [generating, setGenerating]           = useState(false);
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [flashcardSets, setFlashcardSets]         = useState([]);
+  const [loading, setLoading]                     = useState(true);
+  const [generating, setGenerating]               = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deleting, setDeleting]               = useState(false);
-  const [setToDelete, setSetToDelete]         = useState(null);
+  const [deleting, setDeleting]                   = useState(false);
+  const [setToDelete, setSetToDelete]             = useState(null);
+
+  // Aperçu (lecture seule)
+  const [previewSet, setPreviewSet]               = useState(null);
+  const [previewIndex, setPreviewIndex]           = useState(0);
 
   // SRS
-  const [srsMode, setSrsMode]                 = useState(false);
-  const [dueCards, setDueCards]               = useState([]);
-  const [srsCardIndex, setSrsCardIndex]       = useState(0);
-  const [srsFlipped, setSrsFlipped]           = useState(false);
-  const [srsLoadingId, setSrsLoadingId]       = useState(null);        
-  const [srsSessionDone, setSrsSessionDone]   = useState(false);
-  const [srsStats, setSrsStats]               = useState({ reviewed: 0, easy: 0, good: 0, hard: 0, again: 0 });
+  const [srsMode, setSrsMode]                     = useState(false);
+  const [selectedSet, setSelectedSet]             = useState(null);
+  const [dueCards, setDueCards]                   = useState([]);
+  const [srsCardIndex, setSrsCardIndex]           = useState(0);
+  const [srsFlipped, setSrsFlipped]               = useState(false);
+  const [srsLoadingId, setSrsLoadingId]           = useState(null);
+  const [srsSessionDone, setSrsSessionDone]       = useState(false);
+  const [srsStats, setSrsStats]                   = useState({ reviewed: 0, easy: 0, good: 0, hard: 0, again: 0 });
 
   const fetchFlashcardSets = async () => {
     setLoading(true);
@@ -58,18 +60,16 @@ const FlashcardManager = ({ documentId }) => {
     if (documentId) fetchFlashcardSets();
   }, [documentId]);
 
-  // ── Démarrer une session SRS ──────────────────────────────────────────
+  // ── SRS ───────────────────────────────────────────────────────────────
   const handleStartSRS = async (set) => {
     setSrsLoadingId(set._id);
     try {
       const response = await flashcardService.getDueCards(set._id);
       const due = response.data.dueCards;
-
       if (due.length === 0) {
         toast.success("🎉 Aucune carte à réviser pour aujourd'hui !");
         return;
       }
-
       setSelectedSet(set);
       setDueCards(due);
       setSrsCardIndex(0);
@@ -84,34 +84,26 @@ const FlashcardManager = ({ documentId }) => {
     }
   };
 
-  // ── Soumettre une évaluation SRS ──────────────────────────────────────
   const handleSrsRating = async (quality) => {
     const currentCard = dueCards[srsCardIndex];
     if (!currentCard) return;
-
     const labelMap = { 1: "again", 2: "hard", 3: "good", 4: "easy" };
     setSrsStats(prev => ({
       ...prev,
       reviewed: prev.reviewed + 1,
       [labelMap[quality]]: prev[labelMap[quality]] + 1,
     }));
-
     try {
       await flashcardService.srsReview(currentCard._id, quality);
     } catch {
       toast.error("Erreur lors de l'enregistrement.");
     }
-
     const nextIndex = srsCardIndex + 1;
-    if (nextIndex >= dueCards.length) {
-      setSrsSessionDone(true);
-    } else {
-      setSrsCardIndex(nextIndex);
-      setSrsFlipped(false);
-    }
+    if (nextIndex >= dueCards.length) setSrsSessionDone(true);
+    else { setSrsCardIndex(nextIndex); setSrsFlipped(false); }
   };
 
-  // ── Mode classique (navigation simple) ───────────────────────────────
+  // ── Génération ────────────────────────────────────────────────────────
   const handleGenerateFlashcards = async () => {
     setGenerating(true);
     try {
@@ -125,40 +117,25 @@ const FlashcardManager = ({ documentId }) => {
     }
   };
 
-  const handleReview = async (index) => {
-    const card = selectedSet?.cards[index];
-    if (!card) return;
-    try { await flashcardService.reviewFlashcard(card._id, index); } catch {}
-  };
-
-  const handleNextCard = async () => {
-    if (!selectedSet) return;
-    await handleReview(currentCardIndex);
-    setCurrentCardIndex(prev => (prev + 1) % selectedSet.cards.length);
-  };
-
-  const handlePrevCard = async () => {
-    if (!selectedSet) return;
-    await handleReview(currentCardIndex);
-    setCurrentCardIndex(prev => (prev - 1 + selectedSet.cards.length) % selectedSet.cards.length);
-  };
-
-  const handleToggleStar = async (cardId) => {
-    if (!selectedSet) return;
+  // ── Aperçu (toggle star uniquement, pas de review SRS) ───────────────
+  const handleToggleStarPreview = async (cardId) => {
     try {
       await flashcardService.toggleStar(cardId);
-      const updatedSets = flashcardSets.map(set => {
-        if (set._id !== selectedSet._id) return set;
-        return { ...set, cards: set.cards.map(c => c._id === cardId ? { ...c, isStarred: !c.isStarred } : c) };
-      });
-      const updatedSet = updatedSets.find(s => s._id === selectedSet._id);
+      const updatedSets = flashcardSets.map(set => ({
+        ...set,
+        cards: set.cards.map(c => c._id === cardId ? { ...c, isStarred: !c.isStarred } : c)
+      }));
       setFlashcardSets(updatedSets);
-      setSelectedSet(updatedSet);
-      const starred = updatedSet?.cards.find(c => c._id === cardId)?.isStarred;
-      toast.success(starred ? "Flashcard ajoutée aux favoris ⭐" : "Flashcard retirée des favoris");
+      if (previewSet) {
+        const updatedPreview = updatedSets.find(s => s._id === previewSet._id);
+        setPreviewSet(updatedPreview);
+        const starred = updatedPreview?.cards.find(c => c._id === cardId)?.isStarred;
+        toast.success(starred ? "Flashcard ajoutée aux favoris ⭐" : "Flashcard retirée des favoris");
+      }
     } catch { toast.error("Impossible de mettre à jour le favori."); }
   };
 
+  // ── Suppression ───────────────────────────────────────────────────────
   const handleDeleteRequest = (e, set) => {
     e.stopPropagation();
     setSetToDelete(set);
@@ -173,7 +150,6 @@ const FlashcardManager = ({ documentId }) => {
       toast.success("Lot supprimé avec succès !");
       setIsDeleteModalOpen(false);
       setSetToDelete(null);
-      if (selectedSet?._id === setToDelete._id) { setSelectedSet(null); setCurrentCardIndex(0); }
       await fetchFlashcardSets();
     } catch (error) {
       toast.error(error.message || "Échec de la suppression.");
@@ -182,7 +158,7 @@ const FlashcardManager = ({ documentId }) => {
     }
   };
 
-  // ── Render : session SRS ─────────────────────────────────────────────
+  // ── Render : session SRS ──────────────────────────────────────────────
   const renderSrsSession = () => {
     if (srsSessionDone) {
       return (
@@ -194,8 +170,6 @@ const FlashcardManager = ({ documentId }) => {
             <h3 className="text-xl font-semibold text-slate-900 mb-1">Session terminée ! 🎉</h3>
             <p className="text-sm text-slate-500">{srsStats.reviewed} carte(s) révisée(s) aujourd'hui</p>
           </div>
-
-          {/* Stats session */}
           <div className="flex gap-3 flex-wrap justify-center">
             {[
               { label: "Facile",    value: srsStats.easy,  color: "bg-green-50 text-green-700 border-green-200" },
@@ -209,7 +183,6 @@ const FlashcardManager = ({ documentId }) => {
               </div>
             ))}
           </div>
-
           <button
             onClick={() => { setSrsMode(false); setSelectedSet(null); fetchFlashcardSets(); }}
             className="h-11 px-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-semibold shadow-lg shadow-blue-200 hover:from-blue-600 hover:to-blue-700 transition-all"
@@ -225,7 +198,6 @@ const FlashcardManager = ({ documentId }) => {
 
     return (
       <div className="space-y-6">
-        {/* Header SRS */}
         <div className="flex items-center justify-between">
           <button
             onClick={() => { setSrsMode(false); setSelectedSet(null); }}
@@ -235,9 +207,7 @@ const FlashcardManager = ({ documentId }) => {
             Quitter la session
           </button>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-500 font-medium">
-              {srsCardIndex + 1} / {dueCards.length}
-            </span>
+            <span className="text-sm text-slate-500 font-medium">{srsCardIndex + 1} / {dueCards.length}</span>
             <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all duration-500"
@@ -247,7 +217,6 @@ const FlashcardManager = ({ documentId }) => {
           </div>
         </div>
 
-        {/* Carte SRS avec flip manuel */}
         <div className="flex flex-col items-center space-y-6">
           <div className="w-full max-w-2xl">
             <div
@@ -257,12 +226,8 @@ const FlashcardManager = ({ documentId }) => {
             >
               <div
                 className="relative w-full h-full transition-transform duration-500"
-                style={{
-                  transformStyle: "preserve-3d",
-                  transform: srsFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
-                }}
+                style={{ transformStyle: "preserve-3d", transform: srsFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}
               >
-                {/* Face avant — Question */}
                 <div
                   className="absolute inset-0 bg-white/80 backdrop-blur-xl border-2 border-slate-200/60 rounded-2xl shadow-xl p-8 flex flex-col justify-between"
                   style={{ backfaceVisibility: "hidden" }}
@@ -288,7 +253,6 @@ const FlashcardManager = ({ documentId }) => {
                   </div>
                 </div>
 
-                {/* Face arrière — Réponse + boutons SRS */}
                 <div
                   className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-xl p-8 flex flex-col justify-between"
                   style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
@@ -304,7 +268,6 @@ const FlashcardManager = ({ documentId }) => {
             </div>
           </div>
 
-          {/* Boutons de qualité (visibles seulement après flip) */}
           {srsFlipped && (
             <div className="grid grid-cols-4 gap-3 w-full max-w-2xl">
               {SRS_RATINGS.map(({ quality, label, sublabel, color }) => (
@@ -325,51 +288,6 @@ const FlashcardManager = ({ documentId }) => {
               Réfléchis à la réponse, puis retourne la carte
             </p>
           )}
-        </div>
-      </div>
-    );
-  };
-
-  // ── Render : viewer classique ─────────────────────────────────────────
-  const renderFlashcardViewer = () => {
-    const currentCard = selectedSet.cards[currentCardIndex];
-    return (
-      <div className="space-y-8">
-        <button
-          onClick={() => setSelectedSet(null)}
-          className="group inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" strokeWidth={2} />
-          Retour aux lots
-        </button>
-
-        <div className="flex flex-col items-center space-y-8">
-          <div className="w-full max-w-2xl">
-            <Flashcard flashcard={currentCard} onToggleStar={handleToggleStar} />
-          </div>
-          <div className="flex items-center gap-6">
-            <button
-              onClick={handlePrevCard}
-              disabled={selectedSet.cards.length <= 1}
-              className="group flex h-11 items-center gap-2 rounded-xl bg-slate-100 px-5 text-sm font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" strokeWidth={2.5} />
-              Précédent
-            </button>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">
-              <span className="text-sm font-semibold text-slate-700">
-                {currentCardIndex + 1} <span className="font-normal text-slate-400">/</span> {selectedSet.cards.length}
-              </span>
-            </div>
-            <button
-              onClick={handleNextCard}
-              disabled={selectedSet.cards.length <= 1}
-              className="group flex h-11 items-center gap-2 rounded-xl bg-slate-100 px-5 text-sm font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >
-              Suivant
-              <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" strokeWidth={2.5} />
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -426,15 +344,11 @@ const FlashcardManager = ({ documentId }) => {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {flashcardSets.map((set) => {
-            // Compter les cartes dues localement pour affichage
             const now = new Date();
             const dueCount = set.cards.filter(c => !c.nextReview || new Date(c.nextReview) <= now).length;
 
             return (
-              <div
-                key={set._id}
-                className="group relative rounded-2xl border-2 border-slate-200 bg-white/80 p-6 backdrop-blur-xl transition-all duration-200 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-500/10"
-              >
+              <div key={set._id} className="group relative rounded-2xl border-2 border-slate-200 bg-white/80 p-6 backdrop-blur-xl transition-all duration-200 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-500/10">
                 <button
                   onClick={(e) => handleDeleteRequest(e, set)}
                   className="absolute top-4 right-4 rounded-lg p-2 text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-rose-50 hover:text-rose-500 transition-all"
@@ -465,18 +379,19 @@ const FlashcardManager = ({ documentId }) => {
                     )}
                   </div>
 
-                  {/* Deux boutons d'action */}
+                  {/* Boutons — Aperçu + Réviser */}
                   <div className="flex gap-2 pt-1">
                     <button
-                      onClick={() => { setSelectedSet(set); setCurrentCardIndex(0); }}
-                      className="flex-1 h-9 rounded-xl bg-slate-100 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition-all"
+                      onClick={() => { setPreviewSet(set); setPreviewIndex(0); }}
+                      className="flex-1 h-9 rounded-xl bg-slate-100 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition-all flex items-center justify-center gap-1.5"
                     >
-                      Parcourir
+                      <Eye className="w-3.5 h-3.5" strokeWidth={2} />
+                      Aperçu
                     </button>
                     <button
                       onClick={() => handleStartSRS(set)}
                       disabled={srsLoadingId === set._id}
-                      className={`flex-1 h-9 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
+                      className={`flex-1 h-9 rounded-xl text-xs font-semibold transition-all active:scale-95 disabled:opacity-50 ${
                         dueCount > 0
                           ? "bg-gradient-to-r from-orange-400 to-amber-500 text-white shadow-md shadow-orange-200 hover:from-orange-500 hover:to-amber-600"
                           : "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md shadow-blue-200 hover:from-blue-600 hover:to-blue-700"
@@ -497,23 +412,54 @@ const FlashcardManager = ({ documentId }) => {
   return (
     <>
       <div className="rounded-3xl border border-slate-200/60 bg-white/80 p-8 shadow-xl shadow-slate-200/50 backdrop-blur-xl">
-        {srsMode
-          ? renderSrsSession()
-          : selectedSet
-            ? renderFlashcardViewer()
-            : renderSetList()
-        }
+        {srsMode ? renderSrsSession() : renderSetList()}
       </div>
 
+      {/* Modale Aperçu — lecture seule */}
+      <Modal
+        isOpen={!!previewSet}
+        onClose={() => setPreviewSet(null)}
+        title={`Aperçu — ${previewSet?.cards?.length || 0} cartes`}
+      >
+        {previewSet && (
+          <div className="space-y-4">
+            <Flashcard
+              flashcard={previewSet.cards[previewIndex]}
+              onToggleStar={handleToggleStarPreview}
+            />
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setPreviewIndex(i => Math.max(0, i - 1))}
+                disabled={previewIndex === 0}
+                className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-slate-100 text-sm font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
+                Précédent
+              </button>
+              <span className="text-sm text-slate-500 font-medium">
+                {previewIndex + 1} / {previewSet.cards.length}
+              </span>
+              <button
+                onClick={() => setPreviewIndex(i => Math.min(previewSet.cards.length - 1, i + 1))}
+                disabled={previewIndex === previewSet.cards.length - 1}
+                className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-slate-100 text-sm font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                Suivant
+                <ChevronRight className="w-4 h-4" strokeWidth={2.5} />
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modale Suppression */}
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         title="Supprimer le lot de flashcards ?"
       >
         <div className="space-y-6">
-          <p className="text-sm text-slate-600">
-            Es-tu sûr de vouloir supprimer ce lot ? Cette action est irréversible.
-          </p>
+          <p className="text-sm text-slate-600">Es-tu sûr de vouloir supprimer ce lot ? Cette action est irréversible.</p>
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
               onClick={() => setIsDeleteModalOpen(false)}
@@ -527,7 +473,10 @@ const FlashcardManager = ({ documentId }) => {
               disabled={deleting}
               className="h-11 rounded-xl bg-gradient-to-r from-rose-500 to-red-500 px-5 text-sm font-semibold text-white shadow-lg shadow-rose-200 hover:from-rose-600 hover:to-red-600 disabled:opacity-50 transition-all active:scale-95"
             >
-              {deleting ? <span className="flex items-center gap-2"><div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Suppression...</span> : "Supprimer"}
+              {deleting
+                ? <span className="flex items-center gap-2"><div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Suppression...</span>
+                : "Supprimer"
+              }
             </button>
           </div>
         </div>
