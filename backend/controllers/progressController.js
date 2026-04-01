@@ -22,8 +22,8 @@ export const getDashboard = async (req, res, next) => {
     flashcardSets.forEach(set => {
       totalFlashcards   += set.cards.length;
       starredFlashcards += set.cards.filter(c => c.isStarred).length;
-      srsLearned        += set.cards.filter(c => (c.repetitions || 0) >= 1).length;
-      masteredCards     += set.cards.filter(c => (c.repetitions || 0) >= 2).length;
+      srsLearned    += set.cards.filter(c => !!c.lastReviewed).length;
+      masteredCards += set.cards.filter(c => (c.repetitions || 0) >= 1).length;
     });
 
     // ── Stats quiz ────────────────────────────────────────────────────
