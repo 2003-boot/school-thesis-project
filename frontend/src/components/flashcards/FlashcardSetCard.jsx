@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, TrendingUp, Eye, Clock } from "lucide-react";
+import { BookOpen, TrendingUp, Eye, Clock, Download } from "lucide-react";
 import moment from "moment";
 import "moment/dist/locale/fr";
 import flashcardService from "../../services/flashcardService";
+import { exportFlashcardsPDF } from "../../utils/exportFlashcardsPDF";
 import toast from "react-hot-toast";
 
 moment.locale("fr");
@@ -12,11 +13,11 @@ const FlashcardSetCard = ({ flashcardSet, onPreview }) => {
   const navigate = useNavigate();
   const [srsLoadingId, setSrsLoadingId] = useState(null);
 
-  const totalCards       = flashcardSet.cards.length;
-  const reviewedCount    = flashcardSet.cards.filter(c => c.lastReviewed).length;
-  const progressPct      = totalCards > 0 ? Math.round((reviewedCount / totalCards) * 100) : 0;
-  const now              = new Date();
-  const dueCount         = flashcardSet.cards.filter(c => !c.nextReview || new Date(c.nextReview) <= now).length;
+  const totalCards    = flashcardSet.cards.length;
+  const reviewedCount = flashcardSet.cards.filter(c => c.lastReviewed).length;
+  const progressPct   = totalCards > 0 ? Math.round((reviewedCount / totalCards) * 100) : 0;
+  const now           = new Date();
+  const dueCount      = flashcardSet.cards.filter(c => !c.nextReview || new Date(c.nextReview) <= now).length;
 
   const handleStartSRS = async (e) => {
     e.stopPropagation();
@@ -28,7 +29,6 @@ const FlashcardSetCard = ({ flashcardSet, onPreview }) => {
         toast.success("🎉 Aucune carte à réviser pour aujourd'hui !");
         return;
       }
-      // Rediriger vers le document avec onglet Flashcards ouvert en mode SRS
       navigate(`/documents/${flashcardSet.documentId._id}`, {
         state: { openTab: 'Flashcards', startSRS: flashcardSet._id }
       });
@@ -42,6 +42,16 @@ const FlashcardSetCard = ({ flashcardSet, onPreview }) => {
   const handlePreview = (e) => {
     e.stopPropagation();
     if (onPreview) onPreview(flashcardSet);
+  };
+
+  const handleExportPDF = (e) => {
+    e.stopPropagation();
+    try {
+      exportFlashcardsPDF(flashcardSet, flashcardSet.documentId?.title || 'Flashcards');
+      toast.success('PDF généré avec succès !');
+    } catch {
+      toast.error('Erreur lors de la génération du PDF.');
+    }
   };
 
   return (
@@ -100,7 +110,7 @@ const FlashcardSetCard = ({ flashcardSet, onPreview }) => {
         )}
       </div>
 
-      {/* Boutons Aperçu + Réviser */}
+      {/* Boutons Aperçu + Export + Réviser */}
       <div className="mt-6 pt-4 border-t border-slate-100 flex gap-2">
         <button
           onClick={handlePreview}
@@ -109,6 +119,15 @@ const FlashcardSetCard = ({ flashcardSet, onPreview }) => {
           <Eye className="w-3.5 h-3.5" strokeWidth={2} />
           Aperçu
         </button>
+
+        <button
+          onClick={handleExportPDF}
+          className="h-10 px-3 rounded-xl bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-500 transition-all flex items-center justify-center"
+          title="Exporter en PDF"
+        >
+          <Download className="w-3.5 h-3.5" strokeWidth={2} />
+        </button>
+
         <button
           onClick={handleStartSRS}
           disabled={srsLoadingId === flashcardSet._id}

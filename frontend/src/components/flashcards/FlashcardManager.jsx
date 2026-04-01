@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import {
   Plus, ChevronLeft, ChevronRight, Trash2, ArrowLeft,
-  Sparkles, Brain, Clock, Zap, CheckCircle2, Eye,
+  Sparkles, Brain, Clock, Zap, CheckCircle2, Eye, Download,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import moment from "moment";
 import "moment/dist/locale/fr";
+import { exportFlashcardsPDF } from '../../utils/exportFlashcardsPDF';
 
 import flashcardService from "../../services/flashcardService";
 import aiService from "../../services/aiService";
@@ -30,11 +31,9 @@ const FlashcardManager = ({ documentId }) => {
   const [deleting, setDeleting]                   = useState(false);
   const [setToDelete, setSetToDelete]             = useState(null);
 
-  // Aperçu (lecture seule)
   const [previewSet, setPreviewSet]               = useState(null);
   const [previewIndex, setPreviewIndex]           = useState(0);
 
-  // SRS
   const [srsMode, setSrsMode]                     = useState(false);
   const [selectedSet, setSelectedSet]             = useState(null);
   const [dueCards, setDueCards]                   = useState([]);
@@ -60,7 +59,6 @@ const FlashcardManager = ({ documentId }) => {
     if (documentId) fetchFlashcardSets();
   }, [documentId]);
 
-  // ── SRS ───────────────────────────────────────────────────────────────
   const handleStartSRS = async (set) => {
     setSrsLoadingId(set._id);
     try {
@@ -103,7 +101,6 @@ const FlashcardManager = ({ documentId }) => {
     else { setSrsCardIndex(nextIndex); setSrsFlipped(false); }
   };
 
-  // ── Génération ────────────────────────────────────────────────────────
   const handleGenerateFlashcards = async () => {
     setGenerating(true);
     try {
@@ -117,7 +114,6 @@ const FlashcardManager = ({ documentId }) => {
     }
   };
 
-  // ── Aperçu (toggle star uniquement, pas de review SRS) ───────────────
   const handleToggleStarPreview = async (cardId) => {
     try {
       await flashcardService.toggleStar(cardId);
@@ -135,7 +131,6 @@ const FlashcardManager = ({ documentId }) => {
     } catch { toast.error("Impossible de mettre à jour le favori."); }
   };
 
-  // ── Suppression ───────────────────────────────────────────────────────
   const handleDeleteRequest = (e, set) => {
     e.stopPropagation();
     setSetToDelete(set);
@@ -155,6 +150,16 @@ const FlashcardManager = ({ documentId }) => {
       toast.error(error.message || "Échec de la suppression.");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleExportPDF = (e, set) => {
+    e.stopPropagation();
+    try {
+      exportFlashcardsPDF(set, set.documentId?.title || 'Flashcards');
+      toast.success('PDF généré avec succès !');
+    } catch {
+      toast.error('Erreur lors de la génération du PDF.');
     }
   };
 
@@ -349,12 +354,24 @@ const FlashcardManager = ({ documentId }) => {
 
             return (
               <div key={set._id} className="group relative rounded-2xl border-2 border-slate-200 bg-white/80 p-6 backdrop-blur-xl transition-all duration-200 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-500/10">
-                <button
-                  onClick={(e) => handleDeleteRequest(e, set)}
-                  className="absolute top-4 right-4 rounded-lg p-2 text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-rose-50 hover:text-rose-500 transition-all"
-                >
-                  <Trash2 className="h-4 w-4" strokeWidth={2} />
-                </button>
+
+                {/* Boutons icônes en haut à droite — suppression + export */}
+                <div className="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                  <button
+                    onClick={(e) => handleExportPDF(e, set)}
+                    className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-500 transition-all"
+                    title="Exporter en PDF"
+                  >
+                    <Download className="h-4 w-4" strokeWidth={2} />
+                  </button>
+                  <button
+                    onClick={(e) => handleDeleteRequest(e, set)}
+                    className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-all"
+                    title="Supprimer"
+                  >
+                    <Trash2 className="h-4 w-4" strokeWidth={2} />
+                  </button>
+                </div>
 
                 <div className="space-y-4">
                   <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-teal-100">
@@ -415,7 +432,6 @@ const FlashcardManager = ({ documentId }) => {
         {srsMode ? renderSrsSession() : renderSetList()}
       </div>
 
-      {/* Modale Aperçu — lecture seule */}
       <Modal
         isOpen={!!previewSet}
         onClose={() => setPreviewSet(null)}
@@ -452,7 +468,6 @@ const FlashcardManager = ({ documentId }) => {
         )}
       </Modal>
 
-      {/* Modale Suppression */}
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
