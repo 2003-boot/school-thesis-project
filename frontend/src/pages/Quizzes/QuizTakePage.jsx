@@ -109,7 +109,20 @@ const QuizTakePage = () => {
     if (submitting) return;
     setSubmitting(true);
     clearInterval(timerRef.current);
-    recordTiming();
+
+    // Calcul direct du timing de la question courante (sans passer par le state)
+    const spent = Math.round((Date.now() - questionStartRef.current) / 1000);
+
+    // Construire finalTimings à partir du state existant + la question courante
+    const finalTimings = quiz.questions.map((_, idx) => {
+      if (idx === currentQuestionIndex) {
+        // Timing de la question courante calculé directement
+        return { questionIndex: idx, timeSpent: spent };
+      }
+      // Timing des questions précédentes depuis le state
+      const existing = questionTimings.find(t => t.questionIndex === idx);
+      return existing || { questionIndex: idx, timeSpent: 0 };
+    });
 
     try {
       const formattedAnswers = Object.keys(selectedAnswers).map(questionId => {
@@ -119,7 +132,8 @@ const QuizTakePage = () => {
         return { questionIndex: questionIdx, selectedAnswer: question.options[optionIndex] };
       });
 
-      await quizService.submitQuiz(quizId, formattedAnswers, questionTimings);
+      await quizService.submitQuiz(quizId, formattedAnswers, finalTimings);
+
       if (autoSubmit) toast('⏰ Temps écoulé ! Quiz soumis automatiquement.', { icon: '⏰' });
       else toast.success('Quiz soumis avec succès !');
       navigate(`/quizzes/${quizId}/results`);
