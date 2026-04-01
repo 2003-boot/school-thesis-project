@@ -1,8 +1,9 @@
 import { memo, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { FileText, Trash2, BookOpen, BrainCircuit, Clock } from "lucide-react";
+import { FileText, Trash2, BookOpen, BrainCircuit, Clock, Share2 } from "lucide-react";
 import moment from "moment";
 import "moment/dist/locale/fr";
+
 
 moment.locale("fr");
 
@@ -36,7 +37,7 @@ const StatBadge = ({ icon: Icon, value, label, className = "", iconClassName = "
   );
 };
 
-const DocumentCard = ({ document, onDelete }) => {
+const DocumentCard = ({ document, onDelete, onShare }) => {
   const navigate = useNavigate();
 
   const fileSizeLabel = useMemo(() => formatFileSize(document.fileSize), [document.fileSize]);
@@ -71,14 +72,24 @@ const DocumentCard = ({ document, onDelete }) => {
             <FileText className="h-7 w-7 text-white" strokeWidth={2} />
           </div>
 
-          <button
-            type="button"
-            onClick={handleDelete}
-            aria-label="Supprimer le document"
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 opacity-0 transition-all duration-200 hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
-          >
-            <Trash2 className="h-4 w-4" strokeWidth={2} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onShare && onShare(document); }}
+              aria-label="Partager le document"
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 opacity-0 transition-all duration-200 hover:bg-blue-50 hover:text-blue-500 group-hover:opacity-100"
+            >
+              <Share2 className="h-4 w-4" strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              aria-label="Supprimer le document"
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 opacity-0 transition-all duration-200 hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+            >
+              <Trash2 className="h-4 w-4" strokeWidth={2} />
+            </button>
+          </div>
         </div>
 
         <h3

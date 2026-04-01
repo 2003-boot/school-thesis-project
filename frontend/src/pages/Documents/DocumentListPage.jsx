@@ -6,6 +6,7 @@ import documentService from "../../services/documentService";
 import Spinner from "../../components/common/Spinner";
 import Button from "../../components/common/Button";
 import DocumentCard from "../../components/documents/DocumentCard";
+import ShareModal from '../../components/documents/ShareModal';
 
 const DocumentListPage = () => {
   const [documents, setDocuments] = useState([]);
@@ -21,6 +22,13 @@ const DocumentListPage = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareDoc, setShareDoc] = useState(null);
+
+  const handleShareRequest = (doc) => {
+    setShareDoc(doc);
+    setIsShareModalOpen(true);
+  };
 
   const fetchDocuments = async () => {
     try {
@@ -138,6 +146,7 @@ const DocumentListPage = () => {
             key={doc._id}
             document={doc}
             onDelete={handleDeleteRequest}
+            onShare={handleShareRequest}
           />
         ))}
       </div>
@@ -336,6 +345,11 @@ const DocumentListPage = () => {
           </div>
         </div>
       )}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => { setIsShareModalOpen(false); setShareDoc(null); }}
+        document={shareDoc}
+      />
     </div>
   );
 };

@@ -33,6 +33,13 @@ export const API_PATHS = {
     GET_CHAT_HISTORY: (documentId) => `/api/ai/chat-history/${documentId}`,
   },
 
+  SHARE: {
+    CREATE:           '/api/share',
+    GET_FOR_DOCUMENT: (documentId) => `/api/share/document/${documentId}`,
+    REVOKE:           (token) => `/api/share/${token}`,
+    GET_CONTENT:      (token) => `/api/share/${token}/content`,
+  },
+
   FLASHCARDS: {
     GET_ALL_FLASHCARD_SETS:   "/api/flashcards",
     GET_FLASHCARDS_FOR_DOC:   (documentId) => `/api/flashcards/${documentId}`,

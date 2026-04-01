@@ -21,6 +21,7 @@ import VerifyEmailPage from "./pages/Auth/VerifyEmailPage";
 import ForgotPasswordPage from "./pages/Auth/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/Auth/ResetPasswordPage";
 import { useAuth } from "./context/AuthContext";
+import SharedDocumentPage from './pages/Shared/SharedDocumentPage';
 
 const App = () => {
   const { isAuthenticated, loading } = useAuth();
@@ -51,6 +52,7 @@ const App = () => {
         <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/shared/:token" element={<SharedDocumentPage />} />
 
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>
