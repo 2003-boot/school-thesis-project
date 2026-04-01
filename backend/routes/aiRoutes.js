@@ -21,7 +21,7 @@ router.post('/generate-quiz', generateQuiz);
 router.post('/generate-summary', generateSummary);
 router.post('/chat', chat);
 router.post('/explain-concept', explainConcept);
-router.post('/socrate-chat', socrateChat);
+router.post('/socrate-chat', socrateChat); 
 router.post('/generate-mindmap', generateMindMap);
 router.post('/analyze-weaknesses', analyzeWeaknesses);
 router.get('/chat-history/:documentId', getChatHistory);
