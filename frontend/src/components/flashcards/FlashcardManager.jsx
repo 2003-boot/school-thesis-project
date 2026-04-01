@@ -38,7 +38,7 @@ const FlashcardManager = ({ documentId }) => {
   const [dueCards, setDueCards]               = useState([]);
   const [srsCardIndex, setSrsCardIndex]       = useState(0);
   const [srsFlipped, setSrsFlipped]           = useState(false);
-  const [srsLoading, setSrsLoading]           = useState(false);
+  const [srsLoadingId, setSrsLoadingId]       = useState(null);        
   const [srsSessionDone, setSrsSessionDone]   = useState(false);
   const [srsStats, setSrsStats]               = useState({ reviewed: 0, easy: 0, good: 0, hard: 0, again: 0 });
 
@@ -60,7 +60,7 @@ const FlashcardManager = ({ documentId }) => {
 
   // ── Démarrer une session SRS ──────────────────────────────────────────
   const handleStartSRS = async (set) => {
-    setSrsLoading(true);
+    setSrsLoadingId(set._id);
     try {
       const response = await flashcardService.getDueCards(set._id);
       const due = response.data.dueCards;
@@ -80,7 +80,7 @@ const FlashcardManager = ({ documentId }) => {
     } catch (error) {
       toast.error("Impossible de charger les cartes à réviser.");
     } finally {
-      setSrsLoading(false);
+      setSrsLoadingId(null);
     }
   };
 
@@ -475,14 +475,14 @@ const FlashcardManager = ({ documentId }) => {
                     </button>
                     <button
                       onClick={() => handleStartSRS(set)}
-                      disabled={srsLoading}
+                      disabled={srsLoadingId === set._id}
                       className={`flex-1 h-9 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
                         dueCount > 0
                           ? "bg-gradient-to-r from-orange-400 to-amber-500 text-white shadow-md shadow-orange-200 hover:from-orange-500 hover:to-amber-600"
                           : "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md shadow-blue-200 hover:from-blue-600 hover:to-blue-700"
                       }`}
                     >
-                      {srsLoading ? "..." : dueCount > 0 ? `Réviser (${dueCount})` : "Réviser"}
+                      {srsLoadingId === set._id ? "..." : dueCount > 0 ? `Réviser (${dueCount})` : "Réviser"}
                     </button>
                   </div>
                 </div>
