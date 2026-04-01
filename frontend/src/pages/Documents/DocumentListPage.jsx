@@ -7,6 +7,7 @@ import Spinner from "../../components/common/Spinner";
 import Button from "../../components/common/Button";
 import DocumentCard from "../../components/documents/DocumentCard";
 import ShareModal from '../../components/documents/ShareModal';
+import gamificationService from '../../services/gamificationService';
 
 const DocumentListPage = () => {
   const [documents, setDocuments] = useState([]);
@@ -68,6 +69,7 @@ const DocumentListPage = () => {
     try {
       await documentService.uploadDocument(formData);
       toast.success("Cours importé avec succès !");
+      gamificationService.awardXP('DOCUMENT_UPLOAD').catch(() => {});
       setIsUploadModalOpen(false);
       setUploadFile(null);
       setUploadTitle("");

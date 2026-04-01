@@ -15,6 +15,7 @@ import aiRoutes from './routes/aiRoutes.js'
 import quizRoutes from './routes/quizRoutes.js'
 import progressRoutes from './routes/progressRoutes.js'
 import shareRoutes from './routes/shareRoutes.js'
+import gamificationRoutes from './routes/gamificationRoutes.js';
 
 
 // ES6 module __dirname alternative
@@ -58,6 +59,7 @@ app.use('/api/ai', aiRoutes)
 app.use('/api/quizzes', quizRoutes)
 app.use('/api/progress', progressRoutes)
 app.use('/api/share', shareRoutes)
+app.use('/api/gamification', gamificationRoutes)
 
 
 app.use(errorHandler);

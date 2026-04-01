@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import MarkdownRenderer from "../common/MarkdownRenderer";
 import Modal from "../common/Modal";
 import MindMap from "./MindMap";
+import gamificationService from '../../services/gamificationService';
 
 const AIActions = () => {
   const { id: documentId } = useParams();
@@ -63,6 +64,7 @@ const AIActions = () => {
       setMindMapTitle(result.title);
       setShowMindMap(true);
       toast.success("Mind map générée !");
+      gamificationService.awardXP('MINDMAP_GENERATE').catch(() => {});
     } catch (error) {
       toast.error(error.message || "Échec de la génération de la mind map.");
     } finally {

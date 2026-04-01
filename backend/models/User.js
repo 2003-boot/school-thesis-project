@@ -22,40 +22,39 @@ const userSchema = new mongoose.Schema({
     minlength: [6, 'Password must be at least 6 characters long'],
     select: false
   },
-  profileImage: {
-    type: String,
-    default: null
+  profileImage:                 { type: String,  default: null },
+  isEmailVerified:              { type: Boolean, default: false },
+  emailVerificationCode:        { type: String,  default: null },
+  emailVerificationCodeExpires: { type: Date,    default: null },
+  passwordResetToken:           { type: String,  default: null },
+  passwordResetTokenExpires:    { type: Date,    default: null },
+
+  // ── Gamification ──────────────────────────────────────────────────────
+  xp: {
+    type: Number,
+    default: 0,
   },
-  isEmailVerified: {
-    type: Boolean,
-    default: false
+  level: {
+    type: Number,
+    default: 1,
   },
-  emailVerificationCode: {
-    type: String,
-    default: null
-  },
-  emailVerificationCodeExpires: {
-    type: Date,
-    default: null
-  },
-  passwordResetToken: {
-    type: String,
-    default: null
-  },
-  passwordResetTokenExpires: {
-    type: Date,
-    default: null
-  }
-}, {
-  timestamps: true
-});
+  badges: [{
+    id:         { type: String, required: true },
+    unlockedAt: { type: Date,   default: Date.now },
+  }],
+  xpHistory: [{
+    amount:    { type: Number, required: true },
+    reason:    { type: String, required: true },
+    createdAt: { type: Date,   default: Date.now },
+  }],
+
+}, { timestamps: true });
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
     return next();
   }
-
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();
@@ -67,5 +66,4 @@ userSchema.methods.matchPassword = async function(enteredPassword) {
 };
 
 const User = mongoose.model('User', userSchema);
-
 export default User;

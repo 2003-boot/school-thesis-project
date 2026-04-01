@@ -6,6 +6,7 @@ import PageHeader from '../../components/common/PageHeader';
 import Spinner from '../../components/common/Spinner';
 import toast from 'react-hot-toast';
 import Button from '../../components/common/Button';
+import gamificationService from '../../services/gamificationService';
 
 const QuizTakePage = () => {
   const { quizId }   = useParams();
@@ -136,6 +137,8 @@ const QuizTakePage = () => {
 
       if (autoSubmit) toast('⏰ Temps écoulé ! Quiz soumis automatiquement.', { icon: '⏰' });
       else toast.success('Quiz soumis avec succès !');
+      // Dans handleSubmitQuiz, avant navigate :
+      gamificationService.awardXP('QUIZ_COMPLETE').catch(() => {}); // fire & forget
       navigate(`/quizzes/${quizId}/results`);
     } catch (error) {
       toast.error(error.message || 'Erreur lors de la soumission.');

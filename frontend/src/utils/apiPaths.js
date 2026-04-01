@@ -32,6 +32,10 @@ export const API_PATHS = {
     ANALYZE_WEAKNESSES: '/api/ai/analyze-weaknesses', 
     GET_CHAT_HISTORY: (documentId) => `/api/ai/chat-history/${documentId}`,
   },
+  GAMIFICATION: {
+    PROFILE:   '/api/gamification/profile',
+    AWARD_XP:  '/api/gamification/award-xp',
+  },
 
   SHARE: {
     CREATE:           '/api/share',

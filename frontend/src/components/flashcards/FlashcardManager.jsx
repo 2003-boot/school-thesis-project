@@ -13,6 +13,7 @@ import aiService from "../../services/aiService";
 import Spinner from "../common/Spinner";
 import Modal from "../common/Modal";
 import Flashcard from "./Flashcard";
+import gamificationService from '../../services/gamificationService';
 
 moment.locale("fr");
 
@@ -189,7 +190,7 @@ const FlashcardManager = ({ documentId }) => {
             ))}
           </div>
           <button
-            onClick={() => { setSrsMode(false); setSelectedSet(null); fetchFlashcardSets(); }}
+            onClick={() => { setSrsMode(false); setSelectedSet(null); fetchFlashcardSets(); gamificationService.awardXP('SRS_SESSION').catch(() => {});}}
             className="h-11 px-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-semibold shadow-lg shadow-blue-200 hover:from-blue-600 hover:to-blue-700 transition-all"
           >
             Retour aux lots
