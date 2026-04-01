@@ -114,7 +114,7 @@ export const getDashboard = async (req, res, next) => {
           totalDocuments,
           totalFlashcardSets,
           totalFlashcards,
-          reviewedFlashcards,
+          masteredCards,  
           starredFlashcards,
           srsLearned,
           totalQuizzes,

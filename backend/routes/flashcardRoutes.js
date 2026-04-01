@@ -2,7 +2,6 @@ import express from 'express';
 import {
   getFlashcards,
   getAllFlashcardSets,
-  reviewFlashcard,
   toggleStarFlashcard,
   deleteFlashcardSet,
   srsReview,         
@@ -16,7 +15,6 @@ router.use(protect);
 
 router.get('/', getAllFlashcardSets);
 router.get('/:documentId', getFlashcards);
-router.post('/:cardId/review', reviewFlashcard);
 router.post('/:cardId/srs-review', srsReview);         
 router.get('/:flashcardSetId/due', getDueFlashcards);
 router.put('/:cardId/star', toggleStarFlashcard);

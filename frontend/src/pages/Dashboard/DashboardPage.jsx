@@ -184,9 +184,9 @@ const DashboardPage = () => {
 
             <div className="border-t border-slate-100 pt-4 grid grid-cols-3 gap-3">
               {[
-                { label: 'Meilleur score', value: `${overview.bestScore}%`, icon: Trophy, color: 'text-amber-500' },
-                { label: 'Cartes révisées',     value: overview.srsLearned,      icon: CheckCircle2, color: 'text-emerald-500' },
-                { label: 'Favoris',        value: overview.starredFlashcards, icon: Star, color: 'text-yellow-500' },
+                { label: 'Meilleur score',   value: `${overview.bestScore}%`,     icon: Trophy,      color: 'text-amber-500'   },
+                { label: 'Score moyen',      value: `${overview.averageScore}%`,  icon: Target,      color: 'text-blue-500'    },
+                { label: 'Quiz complétés',   value: overview.completedQuizzes,    icon: CheckCircle2, color: 'text-emerald-500' },
               ].map((kpi, i) => (
                 <div key={i} className="text-center p-3 bg-slate-50 rounded-xl border border-slate-100">
                   <kpi.icon className={`w-4 h-4 ${kpi.color} mx-auto mb-1`} strokeWidth={2} />
@@ -207,18 +207,18 @@ const DashboardPage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               {
-                label: 'Révisées',
-                value: overview.reviewedFlashcards,
-                total: overview.totalFlashcards,
-                color: 'bg-blue-500',
-                bg: 'bg-blue-100',
-              },
-              {
                 label: 'Révisées (SRS)',
                 value: overview.srsLearned,
                 total: overview.totalFlashcards,
                 color: 'bg-emerald-500',
                 bg: 'bg-emerald-100',
+              },
+              {
+                label: 'Maîtrisées',
+                value: overview.masteredCards,
+                total: overview.totalFlashcards,
+                color: 'bg-purple-500',
+                bg: 'bg-purple-100',
               },
               {
                 label: 'Favorites',

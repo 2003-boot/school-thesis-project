@@ -156,6 +156,7 @@ export const submitQuiz = async (req, res, next) => {
     next(error);
   }
 };
+
 // @desc    Get quiz results
 // @route   GET /api/quizzes/:id/results
 // @access  Private
