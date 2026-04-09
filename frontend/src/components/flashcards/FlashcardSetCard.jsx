@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 
 moment.locale("fr");
 
-const FlashcardSetCard = ({ flashcardSet, onPreview }) => {
+const FlashcardSetCard = ({ flashcardSet, onPreview, onRevise }) => {
   const navigate = useNavigate();
   const [srsLoadingId, setSrsLoadingId] = useState(null);
 
@@ -29,9 +29,8 @@ const FlashcardSetCard = ({ flashcardSet, onPreview }) => {
         toast.success("🎉 Aucune carte à réviser pour aujourd'hui !");
         return;
       }
-      navigate(`/documents/${flashcardSet.documentId._id}`, {
-        state: { openTab: 'Flashcards', startSRS: flashcardSet._id }
-      });
+      // Passer les cartes dues au parent au lieu de naviguer
+      if (onRevise) onRevise(flashcardSet, due);
     } catch {
       toast.error("Impossible de charger les cartes à réviser.");
     } finally {
