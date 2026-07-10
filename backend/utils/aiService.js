@@ -10,10 +10,11 @@ if (!process.env.GEMINI_API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// Modèle principal : rapide, tier gratuit généreux (250 000 TPM)
-const AI_MODEL = 'gemini-2.5-flash-lite';
+// Modèle principal : gemini-2.5-flash-lite a été retiré sans préavis le 9 juillet 2026
+// (incident confirmé côté Google, en avance sur la date de dépréciation officielle du 16/10/2026)
+const AI_MODEL = 'gemini-3.1-flash-lite';
 // Modèles de secours si le principal est indisponible/saturé, testés dans l'ordre
-const AI_FALLBACK_MODELS = ['gemini-2.5-flash'];
+const AI_FALLBACK_MODELS = ['gemini-3.5-flash'];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -58,6 +59,12 @@ const generateContentWithRetry = async (prompt, { maxRetries = 3, jsonMode = fal
       return await callModel(AI_MODEL);
     } catch (error) {
       lastError = error;
+
+      if (error?.status === 404) {
+        console.warn(`Modèle ${AI_MODEL} indisponible (404), bascule immédiate sur le fallback...`);
+        break;
+      }
+
       if (!isRetryableError(error)) throw error;
 
       const delay = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
