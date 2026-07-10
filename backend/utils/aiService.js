@@ -1,28 +1,94 @@
 import dotenv from 'dotenv';
-import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-if (!process.env.GEMINI_API_KEY) {
-  console.error('FATAL ERROR: GEMINI_API_KEY is not set in the environment variables.');
+if (!process.env.GROQ_API_KEY) {
+  console.error('FATAL ERROR: GROQ_API_KEY is not set in the environment variables.');
   process.exit(1);
 }
 
-const GEMINI_MODEL = "gemini-2.5-flash-lite";
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-const handleGeminiError = (error, fallbackMessage) => {
-  console.error('Gemini API error:', error);
+// Modèle principal (rapide, gratuit, très bonne qualité en français)
+const AI_MODEL = 'llama-3.3-70b-versatile';
+// Modèle de secours si le principal est indisponible/saturé
+const AI_FALLBACK_MODEL = 'openai/gpt-oss-120b';
 
-  const errorMessage =
-    error?.message ||
-    error?.error?.message ||
-    '';
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isRetryableStatus = (status) => status === 503 || status === 502 || status === 500;
+
+/**
+ * Appelle Groq (API compatible OpenAI) avec retry + backoff exponentiel,
+ * puis bascule sur un modèle de secours en dernier recours.
+ * @param {string} prompt - Le prompt complet à envoyer
+ * @param {Object} options
+ * @param {number} options.maxRetries - Nombre de tentatives sur le modèle principal
+ * @returns {Promise<string>} Le texte généré
+ */
+const generateContentWithRetry = async (prompt, { maxRetries = 3 } = {}) => {
+  const callModel = async (model) => {
+    const response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      let errorBody;
+      try {
+        errorBody = await response.json();
+      } catch {
+        errorBody = {};
+      }
+      const error = new Error(errorBody?.error?.message || `Groq API error (${response.status})`);
+      error.status = response.status;
+      error.code = errorBody?.error?.code;
+      throw error;
+    }
+
+    const data = await response.json();
+    return data?.choices?.[0]?.message?.content || '';
+  };
+
+  let lastError;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await callModel(AI_MODEL);
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableStatus(error.status)) throw error;
+
+      const delay = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
+      console.warn(`IA surchargée (tentative ${attempt + 1}/${maxRetries}), retry dans ${delay}ms...`);
+      await sleep(delay);
+    }
+  }
+
+  try {
+    console.warn(`Bascule sur le modèle de secours ${AI_FALLBACK_MODEL}...`);
+    return await callModel(AI_FALLBACK_MODEL);
+  } catch (error) {
+    throw lastError || error;
+  }
+};
+
+const handleAIError = (error, fallbackMessage) => {
+  console.error('AI API error:', error);
+
+  const errorMessage = error?.message || '';
 
   if (
     error?.status === 429 ||
-    errorMessage.includes('RESOURCE_EXHAUSTED') ||
+    errorMessage.toLowerCase().includes('rate limit') ||
     errorMessage.toLowerCase().includes('quota')
   ) {
     throw new Error("⚠️ Limite IA atteinte. Réessaie dans quelques minutes.");
@@ -30,63 +96,14 @@ const handleGeminiError = (error, fallbackMessage) => {
 
   if (
     error?.status === 503 ||
-    errorMessage.includes('UNAVAILABLE') ||
-    errorMessage.toLowerCase().includes('high demand') ||
+    error?.status === 502 ||
+    errorMessage.toLowerCase().includes('unavailable') ||
     errorMessage.toLowerCase().includes('overloaded')
   ) {
-    throw new Error("⚠️ Le service IA est momentanément surchargé (Google). Réessaie dans une minute.");
+    throw new Error("⚠️ Le service IA est momentanément indisponible. Réessaie dans une minute.");
   }
 
   throw new Error(fallbackMessage);
-};
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// Modèle de secours utilisé si le modèle principal est saturé (503)
-const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash";
-
-const isRetryableError = (error) => {
-  const errorMessage = error?.message || error?.error?.message || '';
-  return (
-    error?.status === 503 ||
-    errorMessage.includes('UNAVAILABLE') ||
-    errorMessage.toLowerCase().includes('high demand') ||
-    errorMessage.toLowerCase().includes('overloaded')
-  );
-};
-
-/**
- * Appelle Gemini avec retry + backoff exponentiel sur les erreurs 503 (surcharge),
- * puis bascule sur un modèle de secours si le modèle principal reste indisponible.
- * @param {Object} params - Paramètres passés à ai.models.generateContent (sans "model")
- * @param {Object} options
- * @param {number} options.maxRetries - Nombre de tentatives sur le modèle principal
- * @returns {Promise<Object>} La réponse de generateContent
- */
-const generateContentWithRetry = async (params, { maxRetries = 3 } = {}) => {
-  let lastError;
-
-  // Tentatives sur le modèle principal avec backoff exponentiel
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      return await ai.models.generateContent({ model: GEMINI_MODEL, ...params });
-    } catch (error) {
-      lastError = error;
-      if (!isRetryableError(error)) throw error;
-
-      const delay = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
-      console.warn(`Gemini surchargé (tentative ${attempt + 1}/${maxRetries}), retry dans ${delay}ms...`);
-      await sleep(delay);
-    }
-  }
-
-  // Dernier recours : modèle de secours
-  try {
-    console.warn(`Bascule sur le modèle de secours ${GEMINI_FALLBACK_MODEL}...`);
-    return await ai.models.generateContent({ model: GEMINI_FALLBACK_MODEL, ...params });
-  } catch (error) {
-    throw lastError || error;
-  }
 };
 
 /**
@@ -123,9 +140,7 @@ Texte :
 ${text.substring(0, 15000)}`;
 
   try {
-    const response = await generateContentWithRetry({ contents: prompt });
-
-    const generatedText = response.text || '';
+    const generatedText = await generateContentWithRetry(prompt);
 
     const flashcards = [];
     const cards = generatedText.split('---').filter((c) => c.trim());
@@ -160,7 +175,7 @@ ${text.substring(0, 15000)}`;
 
     return flashcards.slice(0, count);
   } catch (error) {
-    handleGeminiError(error, "❌ Erreur lors de la génération des flashcards.");
+    handleAIError(error, "❌ Erreur lors de la génération des flashcards.");
   }
 };
 
@@ -205,9 +220,7 @@ Texte :
 ${text.substring(0, 15000)}`;
 
   try {
-    const response = await generateContentWithRetry({ contents: prompt });
-
-    const generatedText = response.text || '';
+    const generatedText = await generateContentWithRetry(prompt);
 
     const questions = [];
     const questionBlocks = generatedText.split('---').filter((q) => q.trim());
@@ -256,7 +269,7 @@ ${text.substring(0, 15000)}`;
 
     return questions.slice(0, numQuestions);
   } catch (error) {
-    handleGeminiError(error, "❌ Erreur lors de la génération du quiz.");
+    handleAIError(error, "❌ Erreur lors de la génération du quiz.");
   }
 };
 
@@ -288,9 +301,7 @@ Texte :
 ${text.substring(0, 20000)}`;
 
   try {
-    const response = await generateContentWithRetry({ contents: prompt });
-
-    const generatedText = response.text || '';
+    const generatedText = await generateContentWithRetry(prompt);
 
     if (!generatedText.trim()) {
       throw new Error("Le résumé généré est vide.");
@@ -298,7 +309,7 @@ ${text.substring(0, 20000)}`;
 
     return generatedText;
   } catch (error) {
-    handleGeminiError(error, "❌ Erreur lors de la génération du résumé.");
+    handleAIError(error, "❌ Erreur lors de la génération du résumé.");
   }
 };
 
@@ -368,9 +379,7 @@ Answer:
 `;
 
   try {
-    const response = await generateContentWithRetry({ contents: prompt });
-
-    const generatedText = response.text || '';
+    const generatedText = await generateContentWithRetry(prompt);
 
     if (!generatedText.trim()) {
       throw new Error("La réponse générée est vide.");
@@ -378,7 +387,7 @@ Answer:
 
     return generatedText;
   } catch (error) {
-    handleGeminiError(error, "❌ Erreur lors du traitement de la requête IA.");
+    handleAIError(error, "❌ Erreur lors du traitement de la requête IA.");
   }
 };
 
@@ -411,9 +420,7 @@ Contexte :
 ${(context || '').substring(0, 10000)}`;
 
   try {
-    const response = await generateContentWithRetry({ contents: prompt });
-
-    const generatedText = response.text || '';
+    const generatedText = await generateContentWithRetry(prompt);
 
     if (!generatedText.trim()) {
       throw new Error("L'explication générée est vide.");
@@ -421,10 +428,9 @@ ${(context || '').substring(0, 10000)}`;
 
     return generatedText;
   } catch (error) {
-    handleGeminiError(error, "❌ Erreur lors de l’explication du concept.");
+    handleAIError(error, "❌ Erreur lors de l’explication du concept.");
   }
 };
-
 
 /**
  * Socratic chat — IA qui guide par des questions
@@ -496,13 +502,11 @@ ${userMessage}
 Ta réponse (1 seule question, maximum 3 lignes) :`;
 
   try {
-    const response = await generateContentWithRetry({ contents: prompt });
-
-    const text = response.text || '';
-    if (!text.trim()) throw new Error("Réponse vide de Gemini.");
+    const text = await generateContentWithRetry(prompt);
+    if (!text.trim()) throw new Error("Réponse vide de l'IA.");
     return text;
   } catch (error) {
-    handleGeminiError(error, "❌ Erreur en mode Socrate.");
+    handleAIError(error, "❌ Erreur en mode Socrate.");
   }
 };
 
@@ -549,9 +553,8 @@ Texte :
 ${text.substring(0, 18000)}`;
 
   try {
-    const response = await generateContentWithRetry({ contents: prompt });
-
-    const raw = (response.text || '').trim()
+    const rawText = await generateContentWithRetry(prompt);
+    const raw = rawText.trim()
       .replace(/^```json\s*/i, '')
       .replace(/^```\s*/i, '')
       .replace(/```\s*$/i, '')
@@ -560,7 +563,7 @@ ${text.substring(0, 18000)}`;
     const parsed = JSON.parse(raw);
 
     if (!parsed.nodes || !parsed.edges || !Array.isArray(parsed.nodes)) {
-      throw new Error("Structure JSON invalide retournée par Gemini.");
+      throw new Error("Structure JSON invalide retournée par l'IA.");
     }
 
     // Sanity check : s'assurer que root existe
@@ -570,9 +573,9 @@ ${text.substring(0, 18000)}`;
     return parsed;
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw new Error("❌ Gemini a retourné un JSON invalide pour la mind map.");
+      throw new Error("❌ L'IA a retourné un JSON invalide pour la mind map.");
     }
-    handleGeminiError(error, "❌ Erreur lors de la génération de la mind map.");
+    handleAIError(error, "❌ Erreur lors de la génération de la mind map.");
   }
 };
 
@@ -618,9 +621,8 @@ Questions ratées :
 ${questionsText}`;
 
   try {
-    const response = await generateContentWithRetry({ contents: prompt });
-
-    const raw = (response.text || '').trim()
+    const rawText = await generateContentWithRetry(prompt);
+    const raw = rawText.trim()
       .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
 
     const parsed = JSON.parse(raw);
@@ -630,8 +632,8 @@ ${questionsText}`;
     return parsed;
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw new Error("❌ Gemini a retourné un JSON invalide pour l'analyse.");
+      throw new Error("❌ L'IA a retourné un JSON invalide pour l'analyse.");
     }
-    handleGeminiError(error, "❌ Erreur lors de l'analyse des lacunes.");
+    handleAIError(error, "❌ Erreur lors de l'analyse des lacunes.");
   }
 };
