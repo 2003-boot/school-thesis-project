@@ -2,7 +2,7 @@ import Document from '../models/Document.js';
 import Flashcard from '../models/Flashcard.js';
 import Quiz from '../models/Quiz.js';
 import ChatHistory from '../models/ChatHistory.js';
-import * as geminiService from '../utils/aiService.js';
+import * as aiService from '../utils/aiService.js';
 import { findRelevantChunks } from '../utils/textChunker.js';
 
 // @desc    Generate flashcards from document
@@ -35,7 +35,7 @@ export const generateFlashcards = async (req, res, next) => {
     }
 
     // Generate flashcards using Gemini
-    const cards = await geminiService.generateFlashcards(
+    const cards = await aiService.generateFlashcards(
       document.extractedText,
       parseInt(count)
     );
@@ -93,7 +93,7 @@ export const generateQuiz = async (req, res, next) => {
     }
 
     // Generate quiz using Gemini
-    const questions = await geminiService.generateQuiz(
+    const questions = await aiService.generateQuiz(
       document.extractedText,
       parseInt(numQuestions)
     );
@@ -149,7 +149,7 @@ export const generateSummary = async (req, res, next) => {
     }
 
     // Generate summary using Gemini
-    const summary = await geminiService.generateSummary(document.extractedText);
+    const summary = await aiService.generateSummary(document.extractedText);
 
     res.status(200).json({
       success: true,
@@ -222,7 +222,7 @@ export const chat = async (req, res, next) => {
     }));
 
     // Generate response using Gemini
-    const answer = await geminiService.chatWithContext({
+    const answer = await aiService.chatWithContext({
       question,
       chunks: relevantChunks,
       hasRelevantContext,
@@ -299,7 +299,7 @@ export const explainConcept = async (req, res, next) => {
     const context = relevantChunks.map(c => c.content).join('\n\n');
 
     // Generate explanation using Gemini
-    const explanation = await geminiService.explainConcept(concept, context);
+    const explanation = await aiService.explainConcept(concept, context);
 
     res.status(200).json({
       success: true,
@@ -412,7 +412,7 @@ export const socrateChat = async (req, res, next) => {
     }));
 
     // Appel Gemini en mode Socrate
-    const answer = await geminiService.socraticChat({
+    const answer = await aiService.socraticChat({
       userMessage: message,
       chunks: relevantChunks,
       documentTitle: document.title,
@@ -459,7 +459,7 @@ export const generateMindMap = async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'Document non trouvé', statusCode: 404 });
     }
 
-    const mindMap = await geminiService.generateMindMap(
+    const mindMap = await aiService.generateMindMap(
       document.extractedText,
       document.title
     );
@@ -523,7 +523,7 @@ export const analyzeWeaknesses = async (req, res, next) => {
       });
     }
 
-    const analysis = await geminiService.analyzeWeaknesses(
+    const analysis = await aiService.analyzeWeaknesses(
       wrongQuestions,
       quiz.documentId?.title || ''
     );
