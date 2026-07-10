@@ -28,7 +28,65 @@ const handleGeminiError = (error, fallbackMessage) => {
     throw new Error("⚠️ Limite IA atteinte. Réessaie dans quelques minutes.");
   }
 
+  if (
+    error?.status === 503 ||
+    errorMessage.includes('UNAVAILABLE') ||
+    errorMessage.toLowerCase().includes('high demand') ||
+    errorMessage.toLowerCase().includes('overloaded')
+  ) {
+    throw new Error("⚠️ Le service IA est momentanément surchargé (Google). Réessaie dans une minute.");
+  }
+
   throw new Error(fallbackMessage);
+};
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Modèle de secours utilisé si le modèle principal est saturé (503)
+const GEMINI_FALLBACK_MODEL = "gemini-2.5-flash";
+
+const isRetryableError = (error) => {
+  const errorMessage = error?.message || error?.error?.message || '';
+  return (
+    error?.status === 503 ||
+    errorMessage.includes('UNAVAILABLE') ||
+    errorMessage.toLowerCase().includes('high demand') ||
+    errorMessage.toLowerCase().includes('overloaded')
+  );
+};
+
+/**
+ * Appelle Gemini avec retry + backoff exponentiel sur les erreurs 503 (surcharge),
+ * puis bascule sur un modèle de secours si le modèle principal reste indisponible.
+ * @param {Object} params - Paramètres passés à ai.models.generateContent (sans "model")
+ * @param {Object} options
+ * @param {number} options.maxRetries - Nombre de tentatives sur le modèle principal
+ * @returns {Promise<Object>} La réponse de generateContent
+ */
+const generateContentWithRetry = async (params, { maxRetries = 3 } = {}) => {
+  let lastError;
+
+  // Tentatives sur le modèle principal avec backoff exponentiel
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await ai.models.generateContent({ model: GEMINI_MODEL, ...params });
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableError(error)) throw error;
+
+      const delay = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
+      console.warn(`Gemini surchargé (tentative ${attempt + 1}/${maxRetries}), retry dans ${delay}ms...`);
+      await sleep(delay);
+    }
+  }
+
+  // Dernier recours : modèle de secours
+  try {
+    console.warn(`Bascule sur le modèle de secours ${GEMINI_FALLBACK_MODEL}...`);
+    return await ai.models.generateContent({ model: GEMINI_FALLBACK_MODEL, ...params });
+  } catch (error) {
+    throw lastError || error;
+  }
 };
 
 /**
@@ -65,10 +123,7 @@ Texte :
 ${text.substring(0, 15000)}`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-    });
+    const response = await generateContentWithRetry({ contents: prompt });
 
     const generatedText = response.text || '';
 
@@ -150,10 +205,7 @@ Texte :
 ${text.substring(0, 15000)}`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-    });
+    const response = await generateContentWithRetry({ contents: prompt });
 
     const generatedText = response.text || '';
 
@@ -236,10 +288,7 @@ Texte :
 ${text.substring(0, 20000)}`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-    });
+    const response = await generateContentWithRetry({ contents: prompt });
 
     const generatedText = response.text || '';
 
@@ -319,10 +368,7 @@ Answer:
 `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-    });
+    const response = await generateContentWithRetry({ contents: prompt });
 
     const generatedText = response.text || '';
 
@@ -365,10 +411,7 @@ Contexte :
 ${(context || '').substring(0, 10000)}`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-    });
+    const response = await generateContentWithRetry({ contents: prompt });
 
     const generatedText = response.text || '';
 
@@ -453,10 +496,7 @@ ${userMessage}
 Ta réponse (1 seule question, maximum 3 lignes) :`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-    });
+    const response = await generateContentWithRetry({ contents: prompt });
 
     const text = response.text || '';
     if (!text.trim()) throw new Error("Réponse vide de Gemini.");
@@ -509,10 +549,7 @@ Texte :
 ${text.substring(0, 18000)}`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-    });
+    const response = await generateContentWithRetry({ contents: prompt });
 
     const raw = (response.text || '').trim()
       .replace(/^```json\s*/i, '')
@@ -581,10 +618,7 @@ Questions ratées :
 ${questionsText}`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-    });
+    const response = await generateContentWithRetry({ contents: prompt });
 
     const raw = (response.text || '').trim()
       .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
