@@ -9,24 +9,36 @@ if (!process.env.GROQ_API_KEY) {
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-// Modèle principal (rapide, gratuit, très bonne qualité en français)
-const AI_MODEL = 'llama-3.3-70b-versatile';
-// Modèle de secours si le principal est indisponible/saturé
-const AI_FALLBACK_MODEL = 'openai/gpt-oss-120b';
+// Modèle principal : bien plus de marge en tokens/minute (30 000 TPM) que le 70B (12 000 TPM),
+// ce qui le rend plus fiable pour un usage en rafale (ex: démo/soutenance)
+const AI_MODEL = 'llama-3.1-8b-instant';
+// Modèles de secours si le principal est indisponible/saturé, testés dans l'ordre
+const AI_FALLBACK_MODELS = ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b'];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const isRetryableStatus = (status) => status === 503 || status === 502 || status === 500;
+const isRetryableStatus = (status) => status === 429 || status === 503 || status === 502 || status === 500;
+
+/**
+ * Essaie d'extraire le délai d'attente suggéré par Groq dans le message d'erreur
+ * (ex: "Please try again in 18.35s"). Retourne un délai en ms, ou null si non trouvé.
+ */
+const parseSuggestedDelay = (error) => {
+  const match = /try again in ([\d.]+)s/i.exec(error?.message || '');
+  if (!match) return null;
+  return Math.ceil(parseFloat(match[1]) * 1000) + 250; // petite marge de sécurité
+};
 
 /**
  * Appelle Groq (API compatible OpenAI) avec retry + backoff exponentiel,
- * puis bascule sur un modèle de secours en dernier recours.
+ * puis bascule sur des modèles de secours en dernier recours.
  * @param {string} prompt - Le prompt complet à envoyer
  * @param {Object} options
  * @param {number} options.maxRetries - Nombre de tentatives sur le modèle principal
+ * @param {boolean} options.jsonMode - Force une sortie JSON stricte (response_format)
  * @returns {Promise<string>} Le texte généré
  */
-const generateContentWithRetry = async (prompt, { maxRetries = 3 } = {}) => {
+const generateContentWithRetry = async (prompt, { maxRetries = 3, jsonMode = false } = {}) => {
   const callModel = async (model) => {
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
@@ -38,6 +50,7 @@ const generateContentWithRetry = async (prompt, { maxRetries = 3 } = {}) => {
         model,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
+        ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
       }),
     });
 
@@ -60,6 +73,8 @@ const generateContentWithRetry = async (prompt, { maxRetries = 3 } = {}) => {
 
   let lastError;
 
+  // Tentatives sur le modèle principal, avec respect du délai suggéré par Groq (429)
+  // ou backoff exponentiel classique (503/502/500)
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await callModel(AI_MODEL);
@@ -67,18 +82,24 @@ const generateContentWithRetry = async (prompt, { maxRetries = 3 } = {}) => {
       lastError = error;
       if (!isRetryableStatus(error.status)) throw error;
 
-      const delay = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
-      console.warn(`IA surchargée (tentative ${attempt + 1}/${maxRetries}), retry dans ${delay}ms...`);
+      const suggestedDelay = parseSuggestedDelay(error);
+      const delay = suggestedDelay ?? 1000 * Math.pow(2, attempt); // 1s, 2s, 4s si pas de suggestion
+      console.warn(`IA limitée/surchargée (${error.status}), tentative ${attempt + 1}/${maxRetries}, retry dans ${delay}ms...`);
       await sleep(delay);
     }
   }
 
-  try {
-    console.warn(`Bascule sur le modèle de secours ${AI_FALLBACK_MODEL}...`);
-    return await callModel(AI_FALLBACK_MODEL);
-  } catch (error) {
-    throw lastError || error;
+  // Dernier recours : modèles de secours, dans l'ordre
+  for (const fallbackModel of AI_FALLBACK_MODELS) {
+    try {
+      console.warn(`Bascule sur le modèle de secours ${fallbackModel}...`);
+      return await callModel(fallbackModel);
+    } catch (error) {
+      lastError = error;
+    }
   }
+
+  throw lastError;
 };
 
 const handleAIError = (error, fallbackMessage) => {
@@ -553,7 +574,7 @@ Texte :
 ${text.substring(0, 18000)}`;
 
   try {
-    const rawText = await generateContentWithRetry(prompt);
+    const rawText = await generateContentWithRetry(prompt, { jsonMode: true });
     const raw = rawText.trim()
       .replace(/^```json\s*/i, '')
       .replace(/^```\s*/i, '')
@@ -621,7 +642,7 @@ Questions ratées :
 ${questionsText}`;
 
   try {
-    const rawText = await generateContentWithRetry(prompt);
+    const rawText = await generateContentWithRetry(prompt, { jsonMode: true });
     const raw = rawText.trim()
       .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
 
