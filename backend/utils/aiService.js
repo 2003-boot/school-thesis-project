@@ -1,95 +1,71 @@
 import dotenv from 'dotenv';
+import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
 
-if (!process.env.GROQ_API_KEY) {
-  console.error('FATAL ERROR: GROQ_API_KEY is not set in the environment variables.');
+if (!process.env.GEMINI_API_KEY) {
+  console.error('FATAL ERROR: GEMINI_API_KEY is not set in the environment variables.');
   process.exit(1);
 }
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// Modèle principal : bien plus de marge en tokens/minute (30 000 TPM) que le 70B (12 000 TPM),
-// ce qui le rend plus fiable pour un usage en rafale (ex: démo/soutenance)
-const AI_MODEL = 'llama-3.1-8b-instant';
+// Modèle principal : rapide, tier gratuit généreux (250 000 TPM)
+const AI_MODEL = 'gemini-2.5-flash-lite';
 // Modèles de secours si le principal est indisponible/saturé, testés dans l'ordre
-const AI_FALLBACK_MODELS = ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b'];
+const AI_FALLBACK_MODELS = ['gemini-2.5-flash'];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const isRetryableStatus = (status) => status === 429 || status === 503 || status === 502 || status === 500;
-
-/**
- * Essaie d'extraire le délai d'attente suggéré par Groq dans le message d'erreur
- * (ex: "Please try again in 18.35s"). Retourne un délai en ms, ou null si non trouvé.
- */
-const parseSuggestedDelay = (error) => {
-  const match = /try again in ([\d.]+)s/i.exec(error?.message || '');
-  if (!match) return null;
-  return Math.ceil(parseFloat(match[1]) * 1000) + 250; // petite marge de sécurité
+const isRetryableError = (error) => {
+  const errorMessage = error?.message || error?.error?.message || '';
+  return (
+    error?.status === 429 ||
+    error?.status === 503 ||
+    error?.status === 502 ||
+    error?.status === 500 ||
+    errorMessage.includes('UNAVAILABLE') ||
+    errorMessage.includes('RESOURCE_EXHAUSTED') ||
+    errorMessage.toLowerCase().includes('high demand') ||
+    errorMessage.toLowerCase().includes('overloaded') ||
+    errorMessage.toLowerCase().includes('quota')
+  );
 };
 
 /**
- * Appelle Groq (API compatible OpenAI) avec retry + backoff exponentiel,
+ * Appelle Gemini avec retry + backoff exponentiel,
  * puis bascule sur des modèles de secours en dernier recours.
  * @param {string} prompt - Le prompt complet à envoyer
  * @param {Object} options
  * @param {number} options.maxRetries - Nombre de tentatives sur le modèle principal
- * @param {boolean} options.jsonMode - Force une sortie JSON stricte (response_format)
+ * @param {boolean} options.jsonMode - Force une sortie JSON stricte
  * @returns {Promise<string>} Le texte généré
  */
 const generateContentWithRetry = async (prompt, { maxRetries = 3, jsonMode = false } = {}) => {
   const callModel = async (model) => {
-    const response = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
-      }),
+    const response = await ai.models.generateContent({
+      model,
+      contents: prompt,
+      ...(jsonMode ? { generationConfig: { responseMimeType: 'application/json' } } : {}),
     });
-
-    if (!response.ok) {
-      let errorBody;
-      try {
-        errorBody = await response.json();
-      } catch {
-        errorBody = {};
-      }
-      const error = new Error(errorBody?.error?.message || `Groq API error (${response.status})`);
-      error.status = response.status;
-      error.code = errorBody?.error?.code;
-      throw error;
-    }
-
-    const data = await response.json();
-    return data?.choices?.[0]?.message?.content || '';
+    return response.text || '';
   };
 
   let lastError;
 
-  // Tentatives sur le modèle principal, avec respect du délai suggéré par Groq (429)
-  // ou backoff exponentiel classique (503/502/500)
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await callModel(AI_MODEL);
     } catch (error) {
       lastError = error;
-      if (!isRetryableStatus(error.status)) throw error;
+      if (!isRetryableError(error)) throw error;
 
-      const suggestedDelay = parseSuggestedDelay(error);
-      const delay = suggestedDelay ?? 1000 * Math.pow(2, attempt); // 1s, 2s, 4s si pas de suggestion
-      console.warn(`IA limitée/surchargée (${error.status}), tentative ${attempt + 1}/${maxRetries}, retry dans ${delay}ms...`);
+      const delay = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
+      console.warn(`IA limitée/surchargée, tentative ${attempt + 1}/${maxRetries}, retry dans ${delay}ms...`);
       await sleep(delay);
     }
   }
 
-  // Dernier recours : modèles de secours, dans l'ordre
   for (const fallbackModel of AI_FALLBACK_MODELS) {
     try {
       console.warn(`Bascule sur le modèle de secours ${fallbackModel}...`);
@@ -105,11 +81,11 @@ const generateContentWithRetry = async (prompt, { maxRetries = 3, jsonMode = fal
 const handleAIError = (error, fallbackMessage) => {
   console.error('AI API error:', error);
 
-  const errorMessage = error?.message || '';
+  const errorMessage = error?.message || error?.error?.message || '';
 
   if (
     error?.status === 429 ||
-    errorMessage.toLowerCase().includes('rate limit') ||
+    errorMessage.includes('RESOURCE_EXHAUSTED') ||
     errorMessage.toLowerCase().includes('quota')
   ) {
     throw new Error("⚠️ Limite IA atteinte. Réessaie dans quelques minutes.");
@@ -117,11 +93,11 @@ const handleAIError = (error, fallbackMessage) => {
 
   if (
     error?.status === 503 ||
-    error?.status === 502 ||
-    errorMessage.toLowerCase().includes('unavailable') ||
+    errorMessage.includes('UNAVAILABLE') ||
+    errorMessage.toLowerCase().includes('high demand') ||
     errorMessage.toLowerCase().includes('overloaded')
   ) {
-    throw new Error("⚠️ Le service IA est momentanément indisponible. Réessaie dans une minute.");
+    throw new Error("⚠️ Le service IA est momentanément surchargé. Réessaie dans une minute.");
   }
 
   throw new Error(fallbackMessage);
